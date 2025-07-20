@@ -269,7 +269,6 @@ if not st.session_state.riesgos.empty:
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         st.session_state.riesgos.to_excel(writer, index=False, sheet_name="Riesgos")
-        writer.save()
     processed_data = output.getvalue()
 
     st.download_button(

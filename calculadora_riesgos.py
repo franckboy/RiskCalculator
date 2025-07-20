@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
 from io import BytesIO
 from matplotlib.colors import LinearSegmentedColormap
 import plotly.express as px
@@ -114,23 +112,23 @@ col_izq, col_der = st.columns([1.5, 3])
 with col_izq:
     st.markdown("### Tablas de referencia")
     st.markdown("#### Efectividad de Controles")
-    st.dataframe(tabla_efectividad.style.hide_index(), use_container_width=True)
+    st.dataframe(tabla_efectividad.reset_index(drop=True), use_container_width=True)
     st.markdown("---")
 
     st.markdown("#### Factor de Exposición")
-    st.dataframe(tabla_exposicion.style.hide_index(), use_container_width=True)
+    st.dataframe(tabla_exposicion.reset_index(drop=True), use_container_width=True)
     st.markdown("---")
 
     st.markdown("#### Factor de Probabilidad")
-    st.dataframe(tabla_probabilidad.style.hide_index(), use_container_width=True)
+    st.dataframe(tabla_probabilidad.reset_index(drop=True), use_container_width=True)
     st.markdown("---")
 
     st.markdown("#### Impacto / Severidad")
-    st.dataframe(tabla_impacto.style.hide_index(), use_container_width=True)
+    st.dataframe(tabla_impacto.reset_index(drop=True), use_container_width=True)
     st.markdown("---")
 
     st.markdown("#### Índice de Criticidad")
-    st.dataframe(tabla_criticidad.drop(columns="Color").style.hide_index(), use_container_width=True)
+    st.dataframe(tabla_criticidad.drop(columns="Color").reset_index(drop=True), use_container_width=True)
     st.markdown("---")
 
     st.markdown("#### Semáforo de colores (Leyenda)")
@@ -283,4 +281,25 @@ with col_der:
 
     with col_add_edit[1]:
         if st.button("🔄 Limpiar matriz de riesgos"):
-            st
+            st.session_state.riesgos = pd.DataFrame(columns=st.session_state.riesgos.columns)
+            st.session_state.editar_index = None
+            st.warning("Matriz de riesgos reiniciada.")
+            st.experimental_rerun()
+
+    st.markdown("---")
+
+    # Filtrar tabla según filtro_impacto
+    riesgos_filtrados = st.session_state.riesgos[
+        st.session_state.riesgos["Tipo Impacto"].isin(filtro_impacto)
+    ] if filtro_impacto else st.session_state.riesgos
+
+    # Mostrar matriz acumulativa con botones editar/eliminar
+    if not riesgos_filtrados.empty:
+        st.subheader("Matriz acumulativa de riesgos")
+
+        for idx, row in riesgos_filtrados.iterrows():
+            cols = st.columns([4, 6, 2, 2])
+            cols[0].write(row["Nombre Riesgo"])
+            cols[1].write(row["Tipo Impacto"])
+            cols[2].write(f'{row["Riesgo Residual"]:.2f}')
+

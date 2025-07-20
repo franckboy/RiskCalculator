@@ -73,15 +73,27 @@ st.header("Agregar nuevo riesgo")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    exposicion = st.selectbox("Factor de Exposición", tabla_exposicion["Factor"])
-    probabilidad = st.selectbox("Factor de Probabilidad", tabla_probabilidad["Factor"])
+    exposicion = st.selectbox(
+        "Factor de Exposición",
+        tabla_exposicion["Factor"],
+        format_func=lambda x: f"{x} - {tabla_exposicion.loc[tabla_exposicion['Factor'] == x, 'Nivel'].values[0]}"
+    )
+    probabilidad = st.selectbox(
+        "Factor de Probabilidad",
+        tabla_probabilidad["Factor"],
+        format_func=lambda x: f"{x} - {tabla_probabilidad.loc[tabla_probabilidad['Factor'] == x, 'Nivel'].values[0]}"
+    )
 
 with col2:
     efectividad = st.slider("Efectividad del control (%)", 0, 100, 50)
     impacto = st.slider("Impacto (1 a 5)", 1, 5, 3)
 
 with col3:
-    tipo_impacto = st.selectbox("Tipo de Impacto", list(tipos_impacto.keys()), format_func=lambda x: f"{x} - {tipos_impacto[x]}")
+    tipo_impacto = st.selectbox(
+        "Tipo de Impacto",
+        list(tipos_impacto.keys()),
+        format_func=lambda x: f"{x} - {tipos_impacto[x]}"
+    )
 
 # ---------- Cálculos ----------
 
@@ -133,8 +145,9 @@ if not st.session_state.riesgos.empty:
 
     # Descargar Excel
     output = BytesIO()
-   with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-    st.session_state.riesgos.to_excel(writer
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        st.session_state.riesgos.to_excel(writer, index=False, sheet_name="Riesgos")
+    processed_data = output.getvalue()
 
     st.download_button(
         label="Descargar matriz de riesgos en Excel",

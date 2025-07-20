@@ -9,10 +9,11 @@ from st_aggrid import AgGrid, GridOptionsBuilder
 
 st.set_page_config(layout="wide")
 
-# Diccionario de textos para español e inglés
+# Textos en ambos idiomas
 textos = {
     "es": {
-        "efectividad_controles_titulo": "Efectividad de Controles",
+        "idioma_espanol": "Español",
+        "idioma_ingles": "Inglés",
         "factor_exposicion_titulo": "Factor de Exposición",
         "factor_probabilidad_titulo": "Factor de Probabilidad",
         "impacto_severidad_titulo": "Impacto / Severidad",
@@ -33,10 +34,10 @@ textos = {
         "factor_exposicion": "Factor de Exposición",
         "factor_probabilidad": "Factor de Probabilidad",
         "amenaza_deliberada": "Amenaza Deliberada",
-        "amenaza_deliberada_opciones": {1: "Baja", 2: "Intermedia", 3: "Alta"},
+        "amenaza_deliberada_opciones": {1:"Baja", 2:"Intermedia", 3:"Alta"},
         "efectividad_control": "Efectividad del control (%)",
         "impacto": "Impacto",
-        "resultados": "Resultados:",
+        "resultados": "Resultados",
         "amenaza_inherente": "Amenaza Inherente",
         "amenaza_residual": "Amenaza Residual",
         "amenaza_residual_ajustada": "Amenaza Residual Ajustada (x Amenaza Deliberada)",
@@ -47,15 +48,12 @@ textos = {
         "mapa_calor_titulo": "Mapa de Calor por Tipo de Impacto y Probabilidad vs Impacto",
         "info_agrega_riesgos": "Agrega riesgos para mostrar el mapa de calor.",
         "matriz_acumulativa_titulo": "Matriz Acumulativa de Riesgos",
-        "info_agrega_riesgos_matriz": "Agrega riesgos para mostrar la matriz acumulativa.",
         "descargar_excel": "Descargar matriz de riesgos en Excel",
-        "idioma_selector_titulo": "Selecciona idioma",
-        "idioma_espanol": "Español",
-        "idioma_ingles": "English",
-        "mostrar_selector": "Mostrar selector de idioma"
+        "info_agrega_riesgos_matriz": "Agrega riesgos para mostrar la matriz acumulativa."
     },
     "en": {
-        "efectividad_controles_titulo": "Control Effectiveness",
+        "idioma_espanol": "Spanish",
+        "idioma_ingles": "English",
         "factor_exposicion_titulo": "Exposure Factor",
         "factor_probabilidad_titulo": "Probability Factor",
         "impacto_severidad_titulo": "Impact / Severity",
@@ -66,7 +64,7 @@ textos = {
                 <li style='color:green;'>Green: Acceptable (≤ 2)</li>
                 <li style='color:gold;'>Yellow: Tolerable (≤ 4)</li>
                 <li style='color:orange;'>Orange: Unacceptable (≤ 15)</li>
-                <li style='color:red;'>Red: Intolerable (> 15)</li>
+                <li style='color:red;'>Red: Inadmissible (> 15)</li>
             </ul>
         """,
         "nombre_riesgo": "Risk Name",
@@ -76,164 +74,180 @@ textos = {
         "factor_exposicion": "Exposure Factor",
         "factor_probabilidad": "Probability Factor",
         "amenaza_deliberada": "Deliberate Threat",
-        "amenaza_deliberada_opciones": {1: "Low", 2: "Intermediate", 3: "High"},
+        "amenaza_deliberada_opciones": {1:"Low", 2:"Medium", 3:"High"},
         "efectividad_control": "Control Effectiveness (%)",
         "impacto": "Impact",
-        "resultados": "Results:",
+        "resultados": "Results",
         "amenaza_inherente": "Inherent Threat",
         "amenaza_residual": "Residual Threat",
         "amenaza_residual_ajustada": "Adjusted Residual Threat (x Deliberate Threat)",
         "riesgo_residual": "Residual Risk",
         "clasificacion": "Classification",
-        "agregar_riesgo": "Add Risk to Matrix",
-        "exito_agregar": "Risk added to the cumulative matrix.",
+        "agregar_riesgo": "Add risk to matrix",
+        "exito_agregar": "Risk added to cumulative matrix.",
         "mapa_calor_titulo": "Heatmap by Impact Type and Probability vs Impact",
         "info_agrega_riesgos": "Add risks to display the heatmap.",
         "matriz_acumulativa_titulo": "Cumulative Risk Matrix",
-        "info_agrega_riesgos_matriz": "Add risks to display the cumulative matrix.",
-        "descargar_excel": "Download risk matrix as Excel",
-        "idioma_selector_titulo": "Select Language",
-        "idioma_espanol": "Spanish",
-        "idioma_ingles": "English",
-        "mostrar_selector": "Show language selector"
+        "descargar_excel": "Download risk matrix in Excel",
+        "info_agrega_riesgos_matriz": "Add risks to display the cumulative matrix."
     }
 }
 
-# Sidebar para idioma, puede esconderse
-with st.sidebar.expander("🌐 Language / Idioma", expanded=True):
-    idioma = st.radio(
-        label="Select Language / Seleccionar idioma",
-        options=["es", "en"],
-        format_func=lambda x: textos[x]["idioma_espanol"] if x=="es" else textos[x]["idioma_ingles"]
-    )
-else:
-    # Default por si no está seleccionado
-    idioma = "es"
-
-t = textos[idioma]  # Diccionario actual para texto
-
-# --- Tablas traducidas (misma estructura, solo nombres columnas y textos) ---
-
+# Datos de tablas con columnas fijas en español
 tabla_tipo_impacto = pd.DataFrame({
-    t["tipo_impacto"].split()[0]: ["H", "A", "E", "O", "I", "T", "R", "S", "C"],
-    t["tipo_impacto"]: [
-        t["idioma_espanol"] if idioma=="es" else "Human",
-        "Ambiental" if idioma=="es" else "Environmental",
-        "Económico" if idioma=="es" else "Economic",
-        "Operacional" if idioma=="es" else "Operational",
-        "Infraestructura" if idioma=="es" else "Infrastructure",
-        "Tecnológico" if idioma=="es" else "Technological",
-        "Reputacional" if idioma=="es" else "Reputational",
-        "Social" if idioma=="es" else "Social",
-        "Comercial" if idioma=="es" else "Commercial",
+    "Código": ["H", "A", "E", "O", "I", "T", "R", "S", "C"],
+    "Tipo de Impacto": [
+        "Humano", "Ambiental", "Económico", "Operacional",
+        "Infraestructura", "Tecnológico", "Reputacional",
+        "Social", "Comercial"
     ],
-    "Ponderación" if idioma=="es" else "Weighting": [100, 85, 80, 75, 65, 60, 50, 45, 40],
-    "Justificación" if idioma=="es" else "Justification": [
-        "Afecta directamente la vida, salud o integridad de las personas. Prioridad máxima según ISO 45001."
-        if idioma=="es"
-        else "Directly affects life, health or integrity of people. Highest priority per ISO 45001.",
-        "Daños ecológicos pueden ser irreversibles y conllevan sanciones graves. ISO 14001."
-        if idioma=="es"
-        else "Ecological damage can be irreversible with severe penalties. ISO 14001.",
-        "Pérdidas financieras afectan continuidad y viabilidad del negocio. COSO ERM."
-        if idioma=="es"
-        else "Financial losses affect continuity and viability of business. COSO ERM.",
-        "Interrumpe procesos críticos, producción o servicios clave. ISO 22301."
-        if idioma=="es"
-        else "Interrupts critical processes, key production or services. ISO 22301.",
-        "Daño físico a instalaciones o activos afecta operaciones y seguridad."
-        if idioma=="es"
-        else "Physical damage to facilities or assets affects operations and safety.",
-        "Fallas de sistemas o ciberataques afectan datos y procesos. ISO 27005."
-        if idioma=="es"
-        else "System failures or cyberattacks affect data and processes. ISO 27005.",
-        "Afecta imagen pública, confianza y puede derivar en sanciones indirectas. COSO ERM."
-        if idioma=="es"
-        else "Affects public image, trust and may cause indirect sanctions. COSO ERM.",
-        "Impacta comunidades, condiciones laborales o responsabilidad social. ISO 26000."
-        if idioma=="es"
-        else "Impacts communities, working conditions, or social responsibility. ISO 26000.",
+    "Ponderación": [100, 85, 80, 75, 65, 60, 50, 45, 40],
+    "Justificación": [
+        "Afecta directamente la vida, salud o integridad de las personas. Prioridad máxima según ISO 45001.",
+        "Daños ecológicos pueden ser irreversibles y conllevan sanciones graves. ISO 14001.",
+        "Pérdidas financieras afectan continuidad y viabilidad del negocio. COSO ERM.",
+        "Interrumpe procesos críticos, producción o servicios clave. ISO 22301.",
+        "Daño físico a instalaciones o activos afecta operaciones y seguridad.",
+        "Fallas de sistemas o ciberataques afectan datos y procesos. ISO 27005.",
+        "Afecta imagen pública, confianza y puede derivar en sanciones indirectas. COSO ERM.",
+        "Impacta comunidades, condiciones laborales o responsabilidad social. ISO 26000.",
         "Pérdida de clientes, contratos o mercado. Es recuperable pero afecta ingresos."
-        if idioma=="es"
-        else "Loss of clients, contracts or market. Recoverable but affects revenue."
+    ]
+})
+
+tabla_tipo_impacto_en = pd.DataFrame({
+    "Code": ["H", "A", "E", "O", "I", "T", "R", "S", "C"],
+    "Impact Type": [
+        "Human", "Environmental", "Economic", "Operational",
+        "Infrastructure", "Technological", "Reputational",
+        "Social", "Commercial"
+    ],
+    "Weighting": [100, 85, 80, 75, 65, 60, 50, 45, 40],
+    "Justification": [
+        "Directly affects life, health or integrity of people. Highest priority per ISO 45001.",
+        "Ecological damage can be irreversible and carry severe sanctions. ISO 14001.",
+        "Financial losses affect business continuity and viability. COSO ERM.",
+        "Disrupts critical processes, production or key services. ISO 22301.",
+        "Physical damage to facilities or assets affects operations and safety.",
+        "System failures or cyberattacks affect data and processes. ISO 27005.",
+        "Affects public image, trust and may lead to indirect sanctions. COSO ERM.",
+        "Impacts communities, labor conditions or social responsibility. ISO 26000.",
+        "Loss of customers, contracts or market. Recoverable but affects income."
     ]
 })
 
 tabla_efectividad = pd.DataFrame({
-    "Rango" if idioma=="es" else "Range": ["0%", "1 - 20%", "21-40%", "41-60%", "61-81%", "81-95%", "96-100%"],
+    "Rango": ["0%", "1 - 20%", "21-40%", "41-60%", "61-81%", "81-95%", "96-100%"],
     "Factor": [0, 0.1, 0.3, 0.5, 0.7, 0.9, 0.1],
-    "Mitigacion" if idioma=="es" else "Mitigation": [
-        "Inefectiva" if idioma=="es" else "Ineffective",
-        "Limitada" if idioma=="es" else "Limited",
-        "Baja" if idioma=="es" else "Low",
-        "Intermedia" if idioma=="es" else "Intermediate",
-        "Alta" if idioma=="es" else "High",
-        "Muy alta" if idioma=="es" else "Very High",
-        "Total" if idioma=="es" else "Total"
-    ],
-    "Descripcion" if idioma=="es" else "Description": [
-        "No reduce el riesgo" if idioma=="es" else "Does not reduce risk",
-        "Reduce solo en condiciones ideales" if idioma=="es" else "Reduces risk only in ideal cases",
-        "Mitiga riesgos menores." if idioma=="es" else "Mitigates minor risks",
-        "Control estándar con limitaciones." if idioma=="es" else "Standard control with limitations",
-        "Reduce significativamente el riesgo" if idioma=="es" else "Significantly reduces risk",
-        "Control robusto y bien implementado." if idioma=="es" else "Robust and well implemented control",
-        "Elimina casi todo el riesgo" if idioma=="es" else "Eliminates nearly all risk"
+    "Mitigacion": ["Inefectiva", "Limitada", "Baja", "Intermedia", "Alta", "Muy alta", "Total"],
+    "Descripcion": [
+        "No reduce el riesgo",
+        "Reduce solo en condiciones ideales",
+        "Mitiga riesgos menores.",
+        "Control estándar con limitaciones.",
+        "Reduce significativamente el riesgo",
+        "Control robusto y bien implementado.",
+        "Elimina casi todo el riesgo"
+    ]
+})
+
+tabla_efectividad_en = pd.DataFrame({
+    "Range": ["0%", "1 - 20%", "21-40%", "41-60%", "61-81%", "81-95%", "96-100%"],
+    "Factor": [0, 0.1, 0.3, 0.5, 0.7, 0.9, 0.1],
+    "Mitigation": ["Ineffective", "Limited", "Low", "Intermediate", "High", "Very High", "Total"],
+    "Description": [
+        "Does not reduce risk",
+        "Reduces only under ideal conditions",
+        "Mitigates minor risks.",
+        "Standard control with limitations.",
+        "Significantly reduces risk",
+        "Robust and well-implemented control.",
+        "Eliminates almost all risk"
     ]
 })
 
 tabla_exposicion = pd.DataFrame({
     "Factor": [0.05, 0.15, 0.30, 0.55, 0.85],
-    "Nivel" if idioma=="es" else "Level": [
-        "Muy Baja" if idioma=="es" else "Very Low",
-        "Baja" if idioma=="es" else "Low",
-        "Moderada" if idioma=="es" else "Moderate",
-        "Alta" if idioma=="es" else "High",
-        "Muy Alta" if idioma=="es" else "Very High",
-    ],
-    "Descripcion" if idioma=="es" else "Description": [
-        "Exposición extremadamente rara" if idioma=="es" else "Extremely rare exposure",
-        "Exposición ocasional (cada 10 años)" if idioma=="es" else "Occasional exposure (every 10 years)",
-        "Exposición algunas veces al año" if idioma=="es" else "Exposure several times per year",
-        "Exposición mensual" if idioma=="es" else "Monthly exposure",
-        "Exposición frecuente o semanal" if idioma=="es" else "Frequent or weekly exposure"
+    "Nivel": ["Muy Baja", "Baja", "Moderada", "Alta", "Muy Alta"],
+    "Descripcion": [
+        "Exposición extremadamente rara",
+        "Exposición ocasional (cada 10 años)",
+        "Exposición algunas veces al año",
+        "Exposición mensual",
+        "Exposición frecuente o semanal"
+    ]
+})
+
+tabla_exposicion_en = pd.DataFrame({
+    "Factor": [0.05, 0.15, 0.30, 0.55, 0.85],
+    "Level": ["Very Low", "Low", "Moderate", "High", "Very High"],
+    "Description": [
+        "Extremely rare exposure",
+        "Occasional exposure (every 10 years)",
+        "Exposure several times a year",
+        "Monthly exposure",
+        "Frequent or weekly exposure"
     ]
 })
 
 tabla_probabilidad = pd.DataFrame({
     "Factor": [0.05, 0.15, 0.30, 0.55, 0.85],
-    "Nivel" if idioma=="es" else "Level": [
-        "Muy Baja" if idioma=="es" else "Very Low",
-        "Baja" if idioma=="es" else "Low",
-        "Moderada" if idioma=="es" else "Moderate",
-        "Alta" if idioma=="es" else "High",
-        "Muy Alta" if idioma=="es" else "Very High",
-    ],
-    "Descripcion" if idioma=="es" else "Description": [
-        "En condiciones excepcionales" if idioma=="es" else "Under exceptional conditions",
-        "Ha sucedido alguna vez" if idioma=="es" else "Has occurred once",
-        "Podría ocurrir ocasionalmente" if idioma=="es" else "Could occur occasionally",
-        "Probable en ocasiones" if idioma=="es" else "Probable sometimes",
-        "Ocurre con frecuencia / inminente" if idioma=="es" else "Occurs frequently/imminent"
+    "Nivel": ["Muy Baja", "Baja", "Moderada", "Alta", "Muy Alta"],
+    "Descripcion": [
+        "En condiciones excepcionales",
+        "Ha sucedido alguna vez",
+        "Podría ocurrir ocasionalmente",
+        "Probable en ocasiones",
+        "Ocurre con frecuencia / inminente"
+    ]
+})
+
+tabla_probabilidad_en = pd.DataFrame({
+    "Factor": [0.05, 0.15, 0.30, 0.55, 0.85],
+    "Level": ["Very Low", "Low", "Moderate", "High", "Very High"],
+    "Description": [
+        "Under exceptional conditions",
+        "Has happened once",
+        "Could occur occasionally",
+        "Likely on occasions",
+        "Occurs frequently / imminent"
     ]
 })
 
 tabla_impacto = pd.DataFrame({
-    "Nivel" if idioma=="es" else "Level": [1, 2, 3, 4, 5],
-    "Valor" if idioma=="es" else "Value": [5, 10, 30, 60, 85],
-    "Descripcion" if idioma=="es" else "Description": [
-        "No afecta significativamente" if idioma=="es" else "Does not significantly affect",
-        "Afectación menor" if idioma=="es" else "Minor effect",
-        "Afectación parcial y temporal" if idioma=="es" else "Partial and temporary effect",
-        "Afectación significativa" if idioma=="es" else "Significant effect",
-        "Impacto serio o pérdida total" if idioma=="es" else "Serious impact or total loss"
+    "Nivel": [1, 2, 3, 4, 5],
+    "Valor": [5, 10, 30, 60, 85],
+    "Descripcion": [
+        "No afecta significativamente",
+        "Afectación menor",
+        "Afectación parcial y temporal",
+        "Afectación significativa",
+        "Impacto serio o pérdida total"
+    ]
+})
+
+tabla_impacto_en = pd.DataFrame({
+    "Level": [1, 2, 3, 4, 5],
+    "Value": [5, 10, 30, 60, 85],
+    "Description": [
+        "No significant effect",
+        "Minor effect",
+        "Partial and temporary effect",
+        "Significant effect",
+        "Serious impact or total loss"
     ]
 })
 
 tabla_criticidad = pd.DataFrame({
-    "Límite Superior" if idioma=="es" else "Upper Limit": [2, 4, 15, float('inf')],
-    "Clasificación" if idioma=="es" else "Classification": ["ACEPTABLE", "TOLERABLE", "INACEPTABLE", "INADMISIBLE"] if idioma=="es" else ["ACCEPTABLE", "TOLERABLE", "UNACCEPTABLE", "INTOLERABLE"],
-    "Color": ["Verde", "Amarillo", "Naranja", "Rojo"] if idioma=="es" else ["Green", "Yellow", "Orange", "Red"]
+    "Límite Superior": [2, 4, 15, float('inf')],
+    "Clasificación": ["ACEPTABLE", "TOLERABLE", "INACEPTABLE", "INADMISIBLE"],
+    "Color": ["Verde", "Amarillo", "Naranja", "Rojo"]
+})
+
+tabla_criticidad_en = pd.DataFrame({
+    "Upper Limit": [2, 4, 15, float('inf')],
+    "Classification": ["ACCEPTABLE", "TOLERABLE", "UNACCEPTABLE", "INADMISSIBLE"],
+    "Color": ["Green", "Yellow", "Orange", "Red"]
 })
 
 colors = ["#008000", "#FFD700", "#FF8C00", "#FF0000"]
@@ -241,13 +255,23 @@ cmap = LinearSegmentedColormap.from_list("criticidad_cmap", colors, N=256)
 
 def clasificar_criticidad(valor):
     if valor <= 2:
-        return t["indice_criticidad_descripcion"].split(">")[1].strip().split()[0] if idioma=="en" else "ACEPTABLE", colors[0] if idioma=="es" else "Green"
+        return "ACEPTABLE", "Verde"
     elif valor <= 4:
-        return t["indice_criticidad_descripcion"].split(">")[2].strip().split()[0] if idioma=="en" else "TOLERABLE", colors[1] if idioma=="es" else "Yellow"
+        return "TOLERABLE", "Amarillo"
     elif valor <= 15:
-        return t["indice_criticidad_descripcion"].split(">")[3].strip().split()[0] if idioma=="en" else "INACEPTABLE", colors[2] if idioma=="es" else "Orange"
+        return "INACEPTABLE", "Naranja"
     else:
-        return t["indice_criticidad_descripcion"].split(">")[4].strip().split()[0] if idioma=="en" else "INADMISIBLE", colors[3] if idioma=="es" else "Red"
+        return "INADMISIBLE", "Rojo"
+
+def clasificar_criticidad_en(valor):
+    if valor <= 2:
+        return "ACCEPTABLE", "Green"
+    elif valor <= 4:
+        return "TOLERABLE", "Yellow"
+    elif valor <= 15:
+        return "UNACCEPTABLE", "Orange"
+    else:
+        return "INADMISSIBLE", "Red"
 
 def mostrar_tabla_fija(df, titulo):
     st.markdown(f"### {titulo}")
@@ -266,115 +290,183 @@ def calcular_criticidad(probabilidad, exposicion, amenaza_deliberada, efectivida
 
 if "riesgos" not in st.session_state:
     st.session_state.riesgos = pd.DataFrame(columns=[
-        t["nombre_riesgo"], t["descripcion_riesgo"], t["tipo_impacto"], t["factor_exposicion"], t["factor_probabilidad"], t["amenaza_deliberada"],
-        t["efectividad_control"], t["impacto"], t["amenaza_inherente"], t["amenaza_residual"], t["amenaza_residual_ajustada"],
-        t["riesgo_residual"], t["clasificacion"], "Color " + t["clasificacion"]
+        "Nombre Riesgo", "Descripción", "Tipo Impacto", "Exposición", "Probabilidad", "Amenaza Deliberada",
+        "Efectividad Control (%)", "Impacto", "Amenaza Inherente", "Amenaza Residual", "Amenaza Residual Ajustada",
+        "Riesgo Residual", "Clasificación Criticidad", "Color Criticidad"
     ])
+
+# Selector idioma en barra lateral con expander y valor por defecto
+idioma = "es"  # por defecto
+
+with st.sidebar.expander("🌐 Language / Idioma", expanded=True):
+    idioma = st.radio(
+        label="Select Language / Seleccionar idioma",
+        options=["es", "en"],
+        format_func=lambda x: textos[x]["idioma_espanol"] if x == "es" else textos[x]["idioma_ingles"]
+    )
+
+# Asignar tablas según idioma para mostrar
+if idioma == "es":
+    tabla_tipo_impacto_mostrar = tabla_tipo_impacto.rename(columns={
+        "Código": "Código", "Tipo de Impacto": "Tipo de Impacto", "Ponderación": "Ponderación", "Justificación": "Justificación"
+    })
+    tabla_efectividad_mostrar = tabla_efectividad.rename(columns={
+        "Rango": "Rango", "Mitigacion": "Mitigacion", "Descripcion": "Descripcion"
+    })
+    tabla_exposicion_mostrar = tabla_exposicion.rename(columns={
+        "Factor": "Factor", "Nivel": "Nivel", "Descripcion": "Descripcion"
+    })
+    tabla_probabilidad_mostrar = tabla_probabilidad.rename(columns={
+        "Factor": "Factor", "Nivel": "Nivel", "Descripcion": "Descripcion"
+    })
+    tabla_impacto_mostrar = tabla_impacto.rename(columns={
+        "Nivel": "Nivel", "Valor": "Valor", "Descripcion": "Descripcion"
+    })
+    tabla_criticidad_mostrar = tabla_criticidad.rename(columns={
+        "Límite Superior": "Límite Superior", "Clasificación": "Clasificación", "Color": "Color"
+    })
+    clasificar_criticidad_usar = clasificar_criticidad
+else:
+    tabla_tipo_impacto_mostrar = tabla_tipo_impacto_en.rename(columns={
+        "Code": "Code", "Impact Type": "Impact Type", "Weighting": "Weighting", "Justification": "Justification"
+    })
+    tabla_efectividad_mostrar = tabla_efectividad_en.rename(columns={
+        "Range": "Range", "Mitigation": "Mitigation", "Description": "Description"
+    })
+    tabla_exposicion_mostrar = tabla_exposicion_en.rename(columns={
+        "Factor": "Factor", "Level": "Level", "Description": "Description"
+    })
+    tabla_probabilidad_mostrar = tabla_probabilidad_en.rename(columns={
+        "Factor": "Factor", "Level": "Level", "Description": "Description"
+    })
+    tabla_impacto_mostrar = tabla_impacto_en.rename(columns={
+        "Level": "Level", "Value": "Value", "Description": "Description"
+    })
+    tabla_criticidad_mostrar = tabla_criticidad_en.rename(columns={
+        "Upper Limit": "Upper Limit", "Classification": "Classification", "Color": "Color"
+    })
+    clasificar_criticidad_usar = clasificar_criticidad_en
 
 # Layout principal
 col_izq, col_centro, col_der = st.columns([1.3, 2, 2])
 
 with col_izq:
-    mostrar_tabla_fija(tabla_efectividad[[("Rango" if idioma=="es" else "Range"), ("Mitigacion" if idioma=="es" else "Mitigation"), ("Descripcion" if idioma=="es" else "Description")]], t["efectividad_controles_titulo"])
-    mostrar_tabla_fija(tabla_exposicion[[ "Factor", ("Nivel" if idioma=="es" else "Level"), ("Descripcion" if idioma=="es" else "Description")]], t["factor_exposicion_titulo"])
-    mostrar_tabla_fija(tabla_probabilidad[[ "Factor", ("Nivel" if idioma=="es" else "Level"), ("Descripcion" if idioma=="es" else "Description")]], t["factor_probabilidad_titulo"])
-    mostrar_tabla_fija(tabla_impacto[[("Nivel" if idioma=="es" else "Level"), ("Valor" if idioma=="es" else "Value"), ("Descripcion" if idioma=="es" else "Description")]], t["impacto_severidad_titulo"])
-    mostrar_tabla_fija(tabla_tipo_impacto, t["tipo_impacto_titulo"])
-    st.markdown(f"### {t['indice_criticidad_titulo']}")
-    crit_display = tabla_criticidad.drop(columns=["Color"])
+    mostrar_tabla_fija(tabla_efectividad_mostrar, textos[idioma]["factor_exposicion_titulo"])
+    mostrar_tabla_fija(tabla_exposicion_mostrar, textos[idioma]["factor_probabilidad_titulo"])
+    mostrar_tabla_fija(tabla_probabilidad_mostrar, textos[idioma]["impacto_severidad_titulo"])
+    mostrar_tabla_fija(tabla_tipo_impacto_mostrar, textos[idioma]["tipo_impacto_titulo"])
+    st.markdown(f"### {textos[idioma]['indice_criticidad_titulo']}")
+    crit_display = tabla_criticidad_mostrar.drop(columns=["Color"])
     st.table(crit_display)
-    st.markdown(t["indice_criticidad_descripcion"], unsafe_allow_html=True)
+    st.markdown(textos[idioma]["indice_criticidad_descripcion"], unsafe_allow_html=True)
 
 with col_centro:
     st.title("Calculadora de Riesgos" if idioma=="es" else "Risk Calculator")
-    st.subheader(t["resultados"])
+    st.subheader(textos[idioma]["resultados"])
 
-    nombre_riesgo = st.text_input(t["nombre_riesgo"])
-    descripcion = st.text_area(t["descripcion_riesgo"])
+    nombre_riesgo = st.text_input(textos[idioma]["nombre_riesgo"])
+    descripcion = st.text_area(textos[idioma]["descripcion_riesgo"])
 
-    opciones_impacto_visibles = tabla_tipo_impacto.apply(
-        lambda row: f"{row[t['tipo_impacto'].split()[0]]} - {row[t['tipo_impacto']]}", axis=1).tolist()
-    seleccion_impacto = st.selectbox(t["tipo_impacto"], opciones_impacto_visibles)
+    opciones_impacto_visibles = tabla_tipo_impacto_mostrar.apply(
+        lambda row: f"{row.iloc[0]} - {row.iloc[1]}", axis=1).tolist()
+    seleccion_impacto = st.selectbox(textos[idioma]["tipo_impacto"], opciones_impacto_visibles)
     codigo_impacto = seleccion_impacto.split(" - ")[0]
-    justificacion_impacto = tabla_tipo_impacto.loc[tabla_tipo_impacto[t['tipo_impacto'].split()[0]] == codigo_impacto, "Justificación" if idioma=="es" else "Justification"].values[0]
-    ponderacion_impacto = tabla_tipo_impacto.loc[tabla_tipo_impacto[t['tipo_impacto'].split()[0]] == codigo_impacto, "Ponderación" if idioma=="es" else "Weighting"].values[0]
-    st.markdown(f"**{t['justificacion']}:** {justificacion_impacto}")
+
+    if idioma == "es":
+        justificacion_impacto = tabla_tipo_impacto.loc[tabla_tipo_impacto["Código"] == codigo_impacto, "Justificación"].values[0]
+        ponderacion_impacto = tabla_tipo_impacto.loc[tabla_tipo_impacto["Código"] == codigo_impacto, "Ponderación"].values[0]
+    else:
+        justificacion_impacto = tabla_tipo_impacto_en.loc[tabla_tipo_impacto_en["Code"] == codigo_impacto, "Justification"].values[0]
+        ponderacion_impacto = tabla_tipo_impacto_en.loc[tabla_tipo_impacto_en["Code"] == codigo_impacto, "Weighting"].values[0]
+
+    st.markdown(f"**{textos[idioma]['justificacion']}:** {justificacion_impacto}")
 
     exposicion = st.selectbox(
-        t["factor_exposicion"],
+        textos[idioma]["factor_exposicion"],
         options=tabla_exposicion["Factor"],
-        format_func=lambda x: f"{x} - {tabla_exposicion.loc[tabla_exposicion['Factor']==x, 'Nivel' if idioma=="es" else 'Level'].values[0]}"
+        format_func=lambda x: (
+            f"{x} - {tabla_exposicion['Nivel'].values[tabla_exposicion['Factor'].tolist().index(x)]}"
+            if idioma=="es"
+            else f"{x} - {tabla_exposicion_en['Level'].values[tabla_exposicion_en['Factor'].tolist().index(x)]}"
+        )
     )
     probabilidad = st.selectbox(
-        t["factor_probabilidad"],
+        textos[idioma]["factor_probabilidad"],
         options=tabla_probabilidad["Factor"],
-        format_func=lambda x: f"{x} - {tabla_probabilidad.loc[tabla_probabilidad['Factor']==x, 'Nivel' if idioma=="es" else 'Level'].values[0]}"
+        format_func=lambda x: (
+            f"{x} - {tabla_probabilidad['Nivel'].values[tabla_probabilidad['Factor'].tolist().index(x)]}"
+            if idioma=="es"
+            else f"{x} - {tabla_probabilidad_en['Level'].values[tabla_probabilidad_en['Factor'].tolist().index(x)]}"
+        )
     )
     amenaza_deliberada = st.selectbox(
-        t["amenaza_deliberada"],
+        textos[idioma]["amenaza_deliberada"],
         options=[1, 2, 3],
-        format_func=lambda x: t["amenaza_deliberada_opciones"][x],
+        format_func=lambda x: textos[idioma]["amenaza_deliberada_opciones"][x],
         index=0
     )
-    efectividad = st.slider(t["efectividad_control"], 0, 100, 50)
+    efectividad = st.slider(textos[idioma]["efectividad_control"], 0, 100, 50)
 
     impacto = st.selectbox(
-        t["impacto"],
-        options=tabla_impacto["Nivel" if idioma=="es" else "Level"],
-        format_func=lambda x: f"{x} - {tabla_impacto.loc[tabla_impacto['Nivel' if idioma=="es" else "Level"]==x, 'Descripcion' if idioma=="es" else 'Description'].values[0]}"
+        textos[idioma]["impacto"],
+        options=tabla_impacto["Nivel"],
+        format_func=lambda x: (
+            f"{x} - {tabla_impacto['Descripcion'].values[tabla_impacto['Nivel'].tolist().index(x)]}"
+            if idioma=="es"
+            else f"{x} - {tabla_impacto_en['Description'].values[tabla_impacto_en['Level'].tolist().index(x)]}"
+        )
     )
 
     efectividad_norm = efectividad / 100
-    valor_impacto = tabla_impacto.loc[tabla_impacto["Nivel" if idioma=="es" else "Level"] == impacto, "Valor" if idioma=="es" else "Value"].values[0]
+    valor_impacto = tabla_impacto.loc[tabla_impacto["Nivel"] == impacto, "Valor"].values[0]
 
     amenaza_inherente, amenaza_residual, amenaza_residual_ajustada, riesgo_residual = calcular_criticidad(
         probabilidad, exposicion, amenaza_deliberada, efectividad_norm, valor_impacto, ponderacion_impacto
     )
 
-    clasificacion, color = clasificar_criticidad(riesgo_residual)
+    clasificacion, color = clasificar_criticidad_usar(riesgo_residual)
 
-    st.markdown(f"### {t['resultados']}")
-    st.write(f"- {t['amenaza_inherente']}: {amenaza_inherente:.4f}")
-    st.write(f"- {t['amenaza_residual']}: {amenaza_residual:.4f}")
-    st.write(f"- {t['amenaza_residual_ajustada']}: {amenaza_residual_ajustada:.4f}")
-    st.write(f"- {t['riesgo_residual']}: {riesgo_residual:.4f}")
-    st.write(f"- {t['clasificacion']}: **{clasificacion}** (Color: {color})")
+    st.markdown(f"### {textos[idioma]['resultados']}:")
+    st.write(f"- {textos[idioma]['amenaza_inherente']}: {amenaza_inherente:.4f}")
+    st.write(f"- {textos[idioma]['amenaza_residual']}: {amenaza_residual:.4f}")
+    st.write(f"- {textos[idioma]['amenaza_residual_ajustada']}: {amenaza_residual_ajustada:.4f}")
+    st.write(f"- {textos[idioma]['riesgo_residual']}: {riesgo_residual:.4f}")
+    st.write(f"- {textos[idioma]['clasificacion']}: **{clasificacion}** (Color: {color})")
 
-    if st.button(t["agregar_riesgo"]) and nombre_riesgo.strip() != "":
+    if st.button(textos[idioma]["agregar_riesgo"]) and nombre_riesgo.strip() != "":
         nuevo_riesgo = {
-            t["nombre_riesgo"]: nombre_riesgo.strip(),
-            t["descripcion_riesgo"]: descripcion.strip(),
-            t["tipo_impacto"]: codigo_impacto,
-            t["factor_exposicion"]: exposicion,
-            t["factor_probabilidad"]: probabilidad,
-            t["amenaza_deliberada"]: amenaza_deliberada,
-            t["efectividad_control"]: efectividad,
-            t["impacto"]: impacto,
-            t["amenaza_inherente"]: amenaza_inherente,
-            t["amenaza_residual"]: amenaza_residual,
-            t["amenaza_residual_ajustada"]: amenaza_residual_ajustada,
-            t["riesgo_residual"]: riesgo_residual,
-            t["clasificacion"]: clasificacion,
-            "Color " + t["clasificacion"]: color
+            "Nombre Riesgo": nombre_riesgo.strip(),
+            "Descripción": descripcion.strip(),
+            "Tipo Impacto": codigo_impacto,
+            "Exposición": exposicion,
+            "Probabilidad": probabilidad,
+            "Amenaza Deliberada": amenaza_deliberada,
+            "Efectividad Control (%)": efectividad,
+            "Impacto": impacto,
+            "Amenaza Inherente": amenaza_inherente,
+            "Amenaza Residual": amenaza_residual,
+            "Amenaza Residual Ajustada": amenaza_residual_ajustada,
+            "Riesgo Residual": riesgo_residual,
+            "Clasificación Criticidad": clasificacion,
+            "Color Criticidad": color
         }
         st.session_state.riesgos = pd.concat([st.session_state.riesgos, pd.DataFrame([nuevo_riesgo])], ignore_index=True)
-        st.success(t["exito_agregar"])
+        st.success(textos[idioma]["exito_agregar"])
 
 with col_der:
-    st.header(t["mapa_calor_titulo"])
+    st.header(textos[idioma]["mapa_calor_titulo"])
 
     if not st.session_state.riesgos.empty:
-        # Valor para el mapa = Amenaza Residual Ajustada * Valor Impacto
         st.session_state.riesgos["Valor Mapa"] = (
-            st.session_state.riesgos[t["amenaza_residual_ajustada"]] *
-            st.session_state.riesgos[t["impacto"]].map(
-                lambda x: tabla_impacto.loc[tabla_impacto["Nivel" if idioma=="es" else "Level"] == x, "Valor" if idioma=="es" else "Value"].values[0]
+            st.session_state.riesgos["Amenaza Residual"] *  # Aquí se usa Amenaza Residual, no Inherente
+            st.session_state.riesgos["Impacto"].map(
+                lambda x: tabla_impacto.loc[tabla_impacto["Nivel"] == x, "Valor"].values[0]
             )
         )
 
         matriz_calor = st.session_state.riesgos.pivot_table(
-            index=t["tipo_impacto"],
-            columns=t["factor_probabilidad"],
+            index="Tipo Impacto",
+            columns="Probabilidad",
             values="Valor Mapa",
             aggfunc=np.mean
         ).fillna(0).sort_index()
@@ -385,16 +477,17 @@ with col_der:
             annot=True,
             fmt=".2f",
             cmap=cmap,
-            cbar_kws={"label": "Amenaza Residual Ajustada × Impacto" if idioma=="es" else "Adjusted Residual Threat × Impact"}
+            cbar_kws={"label": f"{textos[idioma]['amenaza_residual']} × {textos[idioma]['impacto']}"}
         )
-        ax.set_xlabel(t["factor_probabilidad"])
-        ax.set_ylabel(t["tipo_impacto"])
+        ax.set_xlabel(textos[idioma]["factor_probabilidad"])
+        ax.set_ylabel(textos[idioma]["tipo_impacto_titulo"])
         st.pyplot(fig)
     else:
-        st.info(t["info_agrega_riesgos"])
+        st.info(textos[idioma]["info_agrega_riesgos"])
 
 st.markdown("---")
-st.header(t["matriz_acumulativa_titulo"])
+st.header(textos[idioma]["matriz_acumulativa_titulo"])
+
 if not st.session_state.riesgos.empty:
     gb = GridOptionsBuilder.from_dataframe(st.session_state.riesgos)
     gb.configure_default_column(resizable=True, wrapText=True, autoHeight=True)
@@ -409,16 +502,14 @@ if not st.session_state.riesgos.empty:
 
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        st.session_state.riesgos.to_excel(writer, index=False, sheet_name="Riesgos" if idioma=="es" else "Risks")
-        # No hace falta writer.save() al usar contexto with
+        st.session_state.riesgos.to_excel(writer, index=False, sheet_name="Riesgos")
     processed_data = output.getvalue()
 
     st.download_button(
-        label=t["descargar_excel"],
+        label=textos[idioma]["descargar_excel"],
         data=processed_data,
         file_name="matriz_riesgos.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 else:
-    st.info(t["info_agrega_riesgos_matriz"])
-
+    st.info(textos[idioma]["info_agrega_riesgos_matriz"])

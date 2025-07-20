@@ -347,12 +347,11 @@ with col_der:
 
         # Botón para exportar Excel
         def to_excel(df):
-            output = BytesIO()
-            writer = pd.ExcelWriter(output, engine='xlsxwriter')
-            df.to_excel(writer, index=True, sheet_name='Matriz_Riesgos')
-            writer.save()
-            processed_data = output.getvalue()
-            return processed_data
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=True, sheet_name='Matriz_Riesgos')
+    processed_data = output.getvalue()
+    return processed_data
 
         df_export = st.session_state.riesgos.drop(columns=["Color Criticidad"])
 

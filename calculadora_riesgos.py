@@ -133,10 +133,8 @@ if not st.session_state.riesgos.empty:
 
     # Descargar Excel
     output = BytesIO()
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        st.session_state.riesgos.to_excel(writer, index=False, sheet_name="Riesgos")
-        writer.save()
-        processed_data = output.getvalue()
+   with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+    st.session_state.riesgos.to_excel(writer
 
     st.download_button(
         label="Descargar matriz de riesgos en Excel",

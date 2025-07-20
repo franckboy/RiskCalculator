@@ -4,6 +4,10 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from io import BytesIO
+from matplotlib.colors import LinearSegmentedColormap
+
+# Configurar layout ancho para usar todo el ancho de la pantalla
+st.set_page_config(layout="wide")
 
 # --- Tablas fijas para referencia ---
 tabla_impacto = pd.DataFrame({
@@ -84,7 +88,6 @@ tabla_criticidad = pd.DataFrame({
     "Color": ["Verde", "Amarillo", "Naranja", "Rojo"]
 })
 
-# --- Función para mostrar tabla de criticidad con leyenda colores ---
 def mostrar_criticidad():
     st.markdown("### Índice de Criticidad y Aceptabilidad")
     st.dataframe(tabla_criticidad.drop(columns="Color"), use_container_width=True)
@@ -99,26 +102,9 @@ def mostrar_criticidad():
         </ul>
         """, unsafe_allow_html=True)
 
-# --- Función para asignar color basado en riesgo residual (índice criticidad) ---
-from matplotlib.colors import LinearSegmentedColormap
-
-def riesgo_a_color(val):
-    """Convierte valor riesgo en color: verde, amarillo, naranja, rojo con degradados"""
-    if val <= 0.7:
-        # verde
-        return "#008000"  # verde oscuro
-    elif val <= 3:
-        return "#FFD700"  # amarillo dorado
-    elif val <= 7:
-        return "#FF8C00"  # naranja oscuro
-    else:
-        return "#FF0000"  # rojo
-
-# Para seaborn heatmap: definimos paleta personalizada con puntos clave
 colors = ["#008000", "#FFD700", "#FF8C00", "#FF0000"]
 cmap = LinearSegmentedColormap.from_list("criticidad_cmap", colors, N=256)
 
-# --- Inicialización datos de riesgos ---
 if "riesgos" not in st.session_state:
     st.session_state.riesgos = pd.DataFrame(columns=[
         "Nombre Riesgo", "Exposición", "Probabilidad", "Efectividad Control (%)",
@@ -126,8 +112,7 @@ if "riesgos" not in st.session_state:
         "Amenaza Inherente", "Amenaza Residual", "Riesgo Residual"
     ])
 
-# --- Layout con columnas ---
-col_izq, col_der = st.columns([1, 3])
+col_izq, col_der = st.columns([1, 4])
 
 with col_izq:
     st.markdown("### Matriz Impacto / Severidad")
@@ -155,9 +140,6 @@ with col_izq:
 with col_der:
     st.title("Calculadora de Riesgos - Matriz Acumulativa con Mapa de Calor")
 
-    # Formulario para nuevo riesgo
-    st.header("Agregar nuevo riesgo")
-
     nombre_riesgo = st.text_input("Nombre del riesgo")
     exposicion = st.selectbox("Factor de Exposición", tabla_exposicion["Factor"])
     probabilidad = st.selectbox("Factor de Probabilidad", tabla_probabilidad["Factor"])
@@ -168,7 +150,6 @@ with col_der:
         ["Humano", "Económico", "Operacional", "Ambiental", "Infraestructura", "Tecnológico", "Reputacional", "Comercial", "Social"]
     )
 
-    # Cálculos
     efec_norm = efectividad / 100
     amenaza_inherente = round(exposicion * probabilidad, 4)
     amenaza_residual = round(amenaza_inherente * (1 - efec_norm), 4)
@@ -194,13 +175,11 @@ with col_der:
         st.session_state.riesgos = pd.concat([st.session_state.riesgos, pd.DataFrame([nuevo_riesgo])], ignore_index=True)
         st.success("Riesgo agregado.")
 
-    # Mostrar matriz acumulativa y mapa de calor si hay datos
     st.header("Matriz acumulativa de riesgos")
 
     if not st.session_state.riesgos.empty:
         st.dataframe(st.session_state.riesgos)
 
-        # Crear tabla pivote para heatmap: filas=Tipo Impacto, columnas=Efectividad Control (%), valores= promedio Riesgo Residual
         matriz_calor = st.session_state.riesgos.pivot_table(
             index="Tipo Impacto",
             columns="Efectividad Control (%)",
@@ -222,12 +201,10 @@ with col_der:
         ax.set_ylabel("Tipo de Impacto")
         st.pyplot(fig)
 
-        # Descargar Excel
         output = BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             st.session_state.riesgos.to_excel(writer, index=False, sheet_name="Riesgos")
-            writer.save()
-            processed_data = output.getvalue()
+        processed_data = output.getvalue()
 
         st.download_button(
             label="Descargar matriz de riesgos en Excel",

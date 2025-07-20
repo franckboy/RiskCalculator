@@ -485,6 +485,7 @@ with col_der:
         st.info(textos[idioma]["info_agrega_riesgos"])
 
     # Mostrar matriz acumulativa
+with st.container():  # <-- Añade este contenedor
     st.header(textos[idioma]["matriz_acumulativa_titulo"])
     if not st.session_state.riesgos.empty:
         st.dataframe(st.session_state.riesgos)

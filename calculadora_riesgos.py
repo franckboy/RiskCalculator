@@ -412,14 +412,28 @@ with col_centro:
         }
         st.session_state.riesgos = pd.concat([st.session_state.riesgos, pd.DataFrame([nuevo_riesgo])], ignore_index=True)
         st.success(textos[idioma]["exito_agregar"])
-
-with col_der:
+        with col_der:
     st.header(textos[idioma]["mapa_calor_titulo"])
 
+    explicacion_probabilidad = {
+        "es": """
+        **Probabilidad Residual (Amenaza Residual) = Amenaza Inherente × (1 - Efectividad Control)**
+
+        En el mapa de calor, la probabilidad se calcula como la probabilidad residual después de aplicar los controles, y el impacto es el valor que el usuario elige para cada riesgo.
+        """,
+        "en": """
+        **Residual Probability (Residual Threat) = Inherent Threat × (1 - Control Effectiveness)**
+
+        In the heatmap, the probability is calculated as the residual probability after applying controls, and the impact is the value chosen by the user for each risk.
+        """
+    }
+
+    st.markdown(explicacion_probabilidad[idioma])
+
     if not st.session_state.riesgos.empty:
-        # Valor para el mapa = Amenaza Residual Ajustada * Valor Impacto
+        # Valor para el mapa = Amenaza Residual * Valor Impacto
         st.session_state.riesgos["Valor Mapa"] = (
-            st.session_state.riesgos["Amenaza Residual Ajustada"] *
+            st.session_state.riesgos["Amenaza Residual"] *
             st.session_state.riesgos["Impacto"].map(
                 lambda x: tabla_impacto_mostrar.loc[tabla_impacto_mostrar["Nivel"] == x, "Valor"].values[0]
             )
@@ -468,31 +482,3 @@ with col_der:
 
     else:
         st.info(textos[idioma]["info_agrega_riesgos"])
-
-st.markdown("---")
-st.header(textos[idioma]["matriz_acumulativa_titulo"])
-if not st.session_state.riesgos.empty:
-    gb = GridOptionsBuilder.from_dataframe(st.session_state.riesgos)
-    gb.configure_default_column(resizable=True, wrapText=True, autoHeight=True)
-    gb.configure_pagination(enabled=True)
-    gridOptions = gb.build()
-    AgGrid(
-        st.session_state.riesgos,
-        gridOptions=gridOptions,
-        height=400,
-        fit_columns_on_grid_load=True
-    )
-
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        st.session_state.riesgos.to_excel(writer, index=False, sheet_name="Riesgos")
-    processed_data = output.getvalue()
-
-    st.download_button(
-        label=textos[idioma]["descargar_excel"],
-        data=processed_data,
-        file_name="matriz_riesgos.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-else:
-    st.info(textos[idioma]["info_agrega_riesgos_matriz"])

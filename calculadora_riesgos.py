@@ -228,12 +228,11 @@ with col_der:
 
         fig, ax = plt.subplots(figsize=(6,5))
         sns.heatmap(
-    matriz_calor,
-    annot=True,
-    fmt=".2f",
-    cmap=cmap,
-    cbar_kws={"label": "Probabilidad x Impacto"}
-)
+            matriz_calor,
+            annot=True,
+            fmt=".2f",
+            cmap=cmap,
+            cbar_kws={"label": "Probabilidad x Impacto"}
         )
         ax.set_xlabel(t["factor_probabilidad"])
         ax.set_ylabel(t["tipo_impacto"])

@@ -412,7 +412,8 @@ with col_centro:
         }
         st.session_state.riesgos = pd.concat([st.session_state.riesgos, pd.DataFrame([nuevo_riesgo])], ignore_index=True)
         st.success(textos[idioma]["exito_agregar"])
-        with col_der:
+
+with col_der:
     st.header(textos[idioma]["mapa_calor_titulo"])
 
     explicacion_probabilidad = {
@@ -482,3 +483,21 @@ with col_centro:
 
     else:
         st.info(textos[idioma]["info_agrega_riesgos"])
+
+    # Mostrar matriz acumulativa
+    st.header(textos[idioma]["matriz_acumulativa_titulo"])
+    if not st.session_state.riesgos.empty:
+        st.dataframe(st.session_state.riesgos)
+        
+        # Botón para descargar Excel
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            st.session_state.riesgos.to_excel(writer, sheet_name='Matriz de Riesgos', index=False)
+        st.download_button(
+            label=textos[idioma]["descargar_excel"],
+            data=output.getvalue(),
+            file_name="matriz_riesgos.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    else:
+        st.info(textos[idioma]["info_agrega_riesgos_matriz"])

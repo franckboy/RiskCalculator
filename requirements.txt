@@ -1,6 +1,7 @@
-streamlit
-pandas
 numpy
-seaborn
-matplotlib
-XlsxWriter
+scipy
+pandas
+scikit-learn
+plotly
+altair
+streamlit

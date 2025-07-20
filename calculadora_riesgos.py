@@ -18,10 +18,10 @@ textos = {
         "indice_criticidad_titulo": "Índice de Criticidad",
         "indice_criticidad_descripcion": """
             <ul>
-                <li style='color:green;'>Verde: Aceptable (≤ 2)</li>
-                <li style='color:gold;'>Amarillo: Tolerable (≤ 4)</li>
-                <li style='color:orange;'>Naranja: Inaceptable (≤ 15)</li>
-                <li style='color:red;'>Rojo: Inadmisible (> 15)</li>
+                <li style='color:green;'>Verde: Aceptable (≤ 0.7)</li>
+                <li style='color:gold;'>Amarillo: Tolerable (≤ 3)</li>
+                <li style='color:orange;'>Naranja: Inaceptable (≤ 7)</li>
+                <li style='color:red;'>Rojo: Inadmisible (> 7)</li>
             </ul>
         """,
         "resultados": "Resultados",
@@ -56,10 +56,10 @@ textos = {
         "indice_criticidad_titulo": "Criticality Index",
         "indice_criticidad_descripcion": """
             <ul>
-                <li style='color:green;'>Green: Acceptable (≤ 2)</li>
-                <li style='color:gold;'>Yellow: Tolerable (≤ 4)</li>
-                <li style='color:orange;'>Orange: Unacceptable (≤ 15)</li>
-                <li style='color:red;'>Red: Inadmissible (> 15)</li>
+                <li style='color:green;'>Green: Acceptable (≤ 0.7)</li>
+                <li style='color:gold;'>Yellow: Tolerable (≤ 3)</li>
+                <li style='color:orange;'>Orange: Unacceptable (≤ 7)</li>
+                <li style='color:red;'>Red: Inadmissible (> 7)</li>
             </ul>
         """,
         "resultados": "Results",
@@ -88,7 +88,7 @@ textos = {
     }
 }
 
-# Tablas fijas traducidas (solo lo necesario para listas)
+# Tablas fijas solo con datos que no se muestran, se usan para cálculos
 tabla_tipo_impacto = pd.DataFrame({
     "Código": ["H", "A", "E", "O", "I", "T", "R", "S", "C"],
     "Tipo de Impacto": [
@@ -146,24 +146,24 @@ tabla_impacto = pd.DataFrame({
     ]
 })
 
-tabla_criticidad = pd.DataFrame({
-    "Límite Superior": [0.7, 3, 7, float('inf')],
-    "Clasificación": ["ACEPTABLE", "TOLERABLE", "INACEPTABLE", "INADMISIBLE"],
-    "Color": ["Verde", "Amarillo", "Naranja", "Rojo"]
-})
-
-colors = ["#008000", "#FFD700", "#FF8C00", "#FF0000"]
-cmap = LinearSegmentedColormap.from_list("criticidad_cmap", colors, N=256)
-
+# Clasificación ajustada según rango que pediste
 def clasificar_criticidad(valor):
     if valor <= 0.7:
-        return "ACEPTABLE", "Verde"
+        return "ACEPTABLE", "#008000"  # Verde
     elif valor <= 3:
-        return "TOLERABLE", "Amarillo"
+        return "TOLERABLE", "#FFD700"  # Amarillo
     elif valor <= 7:
-        return "INACEPTABLE", "Naranja"
+        return "INACEPTABLE", "#FF8C00"  # Naranja
     else:
-        return "INADMISIBLE", "Rojo"
+        return "INADMISIBLE", "#FF0000"  # Rojo
+
+# Cálculo riesgo
+def calcular_criticidad(probabilidad, exposicion, amenaza_deliberada, efectividad, valor_impacto, ponderacion_impacto):
+    amenaza_inherente = probabilidad * exposicion
+    amenaza_residual = amenaza_inherente * (1 - efectividad)
+    amenaza_residual_ajustada = amenaza_residual * amenaza_deliberada
+    riesgo_residual = amenaza_residual_ajustada * valor_impacto * (ponderacion_impacto / 100)
+    return amenaza_inherente, amenaza_residual, amenaza_residual_ajustada, riesgo_residual
 
 if "riesgos" not in st.session_state:
     st.session_state.riesgos = pd.DataFrame(columns=[
@@ -176,195 +176,101 @@ if "riesgos" not in st.session_state:
 with st.sidebar.expander("Language / Idioma", expanded=True):
     idioma = st.selectbox("Selecciona idioma / Select language", options=["es", "en"], index=0)
 
-# Variables para tablas y funciones según idioma
-if idioma == "es":
-    tabla_tipo_impacto_mostrar = tabla_tipo_impacto
-    tabla_exposicion_mostrar = tabla_exposicion
-    tabla_probabilidad_mostrar = tabla_probabilidad
-    tabla_impacto_mostrar = tabla_impacto
-    clasificar_criticidad_usar = clasificar_criticidad
-else:
-    st.error("Idioma inglés no implementado en este ejemplo para mantener simplicidad.")
-    st.stop()
+# Textos idioma actual
+t = textos[idioma]
 
-# Layout principal
-col_izq, col_centro, col_der = st.columns([1, 2, 2])
+st.title("Calculadora de Riesgos" if idioma == "es" else "Risk Calculator")
 
-with col_izq:
-    # No mostrar tablas fijas, solo etiquetas y explicación
-    st.markdown(f"### {textos[idioma]['indice_criticidad_titulo']}")
-    crit_display = tabla_criticidad[["Límite Superior", "Clasificación"]].rename(
-        columns={"Límite Superior": "Límite Superior", "Clasificación": "Clasificación"}
-    )
-    st.table(crit_display.style.applymap(
-        lambda v: f"background-color: { 'green' if v=='ACEPTABLE' else 'yellow' if v=='TOLERABLE' else 'orange' if v=='INACEPTABLE' else 'red' }", subset=["Clasificación"]
-    ))
-    st.markdown(textos[idioma]["indice_criticidad_descripcion"], unsafe_allow_html=True)
+# Formulario para ingresar datos del riesgo
+nombre_riesgo = st.text_input(t["nombre_riesgo"])
+descripcion = st.text_area(t["descripcion_riesgo"])
 
-with col_centro:
-    st.title("Calculadora de Riesgos")
-    st.subheader(textos[idioma]["resultados"])
+# Opciones listas desplegables con formato "valor + texto"
+opciones_impacto = tabla_tipo_impacto.apply(lambda r: f"{r['Código']} - {r['Tipo de Impacto']}", axis=1).tolist()
+seleccion_impacto = st.selectbox(t["tipo_impacto"], opciones_impacto)
+codigo_impacto = seleccion_impacto.split(" - ")[0]
+justificacion_impacto = tabla_tipo_impacto.loc[tabla_tipo_impacto["Código"] == codigo_impacto, "Justificación"].values[0]
+ponderacion_impacto = tabla_tipo_impacto.loc[tabla_tipo_impacto["Código"] == codigo_impacto, "Ponderación"].values[0]
+st.markdown(f"**{t['justificacion']}:** {justificacion_impacto}")
 
-    nombre_riesgo = st.text_input(textos[idioma]["nombre_riesgo"])
-    descripcion = st.text_area(textos[idioma]["descripcion_riesgo"])
+exposicion = st.selectbox(
+    t["factor_exposicion"],
+    options=tabla_exposicion["Factor"],
+    format_func=lambda x: f"{x} {tabla_exposicion.loc[tabla_exposicion['Factor'] == x, 'Nivel'].values[0]}"
+)
+probabilidad = st.selectbox(
+    t["factor_probabilidad"],
+    options=tabla_probabilidad["Factor"],
+    format_func=lambda x: f"{x} {tabla_probabilidad.loc[tabla_probabilidad['Factor'] == x, 'Nivel'].values[0]}"
+)
+amenaza_deliberada = st.selectbox(
+    t["amenaza_deliberada"],
+    options=[1, 2, 3],
+    format_func=lambda x: t["amenaza_deliberada_opciones"][x],
+    index=0
+)
+efectividad = st.slider(t["efectividad_control"], 0, 100, 50)
+impacto = st.selectbox(
+    t["impacto"],
+    options=tabla_impacto["Nivel"],
+    format_func=lambda x: f"{x} {tabla_impacto.loc[tabla_impacto['Nivel'] == x, 'Descripcion'].values[0]}"
+)
 
-    opciones_impacto_visibles = tabla_tipo_impacto_mostrar.apply(
-        lambda row: f"{row['Código']} - {row['Tipo de Impacto']}", axis=1).tolist()
-    seleccion_impacto = st.selectbox(textos[idioma]["tipo_impacto"], opciones_impacto_visibles)
-    codigo_impacto = seleccion_impacto.split(" - ")[0]
-    justificacion_impacto = tabla_tipo_impacto_mostrar.loc[tabla_tipo_impacto_mostrar["Código"] == codigo_impacto, "Justificación"].values[0]
-    ponderacion_impacto = tabla_tipo_impacto_mostrar.loc[tabla_tipo_impacto_mostrar["Código"] == codigo_impacto, "Ponderación"].values[0]
-    st.markdown(f"**{textos[idioma]['justificacion']}:** {justificacion_impacto}")
+efectividad_norm = efectividad / 100
+valor_impacto = tabla_impacto.loc[tabla_impacto["Nivel"] == impacto, "Valor"].values[0]
 
-    exposicion = st.selectbox(
-        textos[idioma]["factor_exposicion"],
-        options=tabla_exposicion_mostrar["Factor"],
-        format_func=lambda x: f"{x} - {tabla_exposicion_mostrar.loc[tabla_exposicion_mostrar['Factor'] == x, 'Nivel'].values[0]}"
-    )
+amenaza_inherente, amenaza_residual, amenaza_residual_ajustada, riesgo_residual = calcular_criticidad(
+    probabilidad, exposicion, amenaza_deliberada, efectividad_norm, valor_impacto, ponderacion_impacto
+)
 
-    probabilidad = st.selectbox(
-        textos[idioma]["factor_probabilidad"],
-        options=tabla_probabilidad_mostrar["Factor"],
-        format_func=lambda x: f"{x} - {tabla_probabilidad_mostrar.loc[tabla_probabilidad_mostrar['Factor'] == x, 'Nivel'].values[0]}"
-    )
+clasificacion, color = clasificar_criticidad(riesgo_residual)
 
-    amenaza_deliberada = st.selectbox(
-        textos[idioma]["amenaza_deliberada"],
-        options=[1, 2, 3],
-        format_func=lambda x: textos[idioma]["amenaza_deliberada_opciones"][x],
-        index=0
-    )
+st.markdown(f"### {t['resultados']}:")
+st.write(f"- {t['amenaza_inherente']}: {amenaza_inherente:.4f}")
+st.write(f"- {t['amenaza_residual']}: {amenaza_residual:.4f}")
+st.write(f"- {t['amenaza_residual_ajustada']}: {amenaza_residual_ajustada:.4f}")
+st.write(f"- {t['riesgo_residual']}: {riesgo_residual:.4f}")
+st.markdown(f"- {t['clasificacion']}: <span style='color:{color};font-weight:bold'>{clasificacion}</span>", unsafe_allow_html=True)
 
-    efectividad = st.slider(textos[idioma]["efectividad_control"], 0, 100, 50)
-
-    impacto = st.selectbox(
-        textos[idioma]["impacto"],
-        options=tabla_impacto_mostrar["Nivel"],
-        format_func=lambda x: f"{x} - {tabla_impacto_mostrar.loc[tabla_impacto_mostrar['Nivel'] == x, 'Descripcion'].values[0]}"
-    )
-
-    efectividad_norm = efectividad / 100
-    valor_impacto = tabla_impacto_mostrar.loc[tabla_impacto_mostrar["Nivel"] == impacto, "Valor"].values[0]
-
-    amenaza_inherente = probabilidad * exposicion
-    amenaza_residual = amenaza_inherente * (1 - efectividad_norm)
-    amenaza_residual_ajustada = amenaza_residual * amenaza_deliberada
-    riesgo_residual = amenaza_residual_ajustada * valor_impacto * (ponderacion_impacto / 100)
-
-    clasificacion, color = clasificar_criticidad_usar(riesgo_residual)
-
-    st.markdown(f"### {textos[idioma]['resultados']}:")
-    st.write(f"- {textos[idioma]['amenaza_inherente']}: {amenaza_inherente:.4f}")
-    st.write(f"- {textos[idioma]['amenaza_residual']}: {amenaza_residual:.4f}")
-    st.write(f"- {textos[idioma]['amenaza_residual_ajustada']}: {amenaza_residual_ajustada:.4f}")
-    st.write(f"- {textos[idioma]['riesgo_residual']}: {riesgo_residual:.4f}")
-    st.write(f"- {textos[idioma]['clasificacion']}: **{clasificacion}** (Color: {color})")
-
-    if st.button(textos[idioma]["agregar_riesgo"]) and nombre_riesgo.strip() != "":
-        nuevo_riesgo = {
-            "Nombre Riesgo": nombre_riesgo.strip(),
-            "Descripción": descripcion.strip(),
-            "Tipo Impacto": codigo_impacto,
-            "Exposición": exposicion,
-            "Probabilidad": probabilidad,
-            "Amenaza Deliberada": amenaza_deliberada,
-            "Efectividad Control (%)": efectividad,
-            "Impacto": impacto,
-            "Amenaza Inherente": amenaza_inherente,
-            "Amenaza Residual": amenaza_residual,
-            "Amenaza Residual Ajustada": amenaza_residual_ajustada,
-            "Riesgo Residual": riesgo_residual,
-            "Clasificación Criticidad": clasificacion,
-            "Color Criticidad": color
-        }
-        st.session_state.riesgos = pd.concat([st.session_state.riesgos, pd.DataFrame([nuevo_riesgo])], ignore_index=True)
-        st.success(textos[idioma]["exito_agregar"])
-
-with col_der:
-    st.header(textos[idioma]["mapa_calor_titulo"])
-
-    explicacion_probabilidad = {
-        "es": """
-        **Probabilidad Residual (Amenaza Residual) = Amenaza Inherente × (1 - Efectividad Control)**
-
-        En el mapa de calor, la probabilidad se calcula como la probabilidad residual después de aplicar los controles, y el impacto es el valor que el usuario elige para cada riesgo.
-        """
+if st.button(t["agregar_riesgo"]) and nombre_riesgo.strip() != "":
+    nuevo_riesgo = {
+        "Nombre Riesgo": nombre_riesgo.strip(),
+        "Descripción": descripcion.strip(),
+        "Tipo Impacto": codigo_impacto,
+        "Exposición": exposicion,
+        "Probabilidad": probabilidad,
+        "Amenaza Deliberada": amenaza_deliberada,
+        "Efectividad Control (%)": efectividad,
+        "Impacto": impacto,
+        "Amenaza Inherente": amenaza_inherente,
+        "Amenaza Residual": amenaza_residual,
+        "Amenaza Residual Ajustada": amenaza_residual_ajustada,
+        "Riesgo Residual": riesgo_residual,
+        "Clasificación Criticidad": clasificacion,
+        "Color Criticidad": color
     }
-    st.markdown(explicacion_probabilidad[idioma])
+    st.session_state.riesgos = pd.concat([st.session_state.riesgos, pd.DataFrame([nuevo_riesgo])], ignore_index=True)
+    st.success(t["exito_agregar"])
 
-    if not st.session_state.riesgos.empty:
-        st.session_state.riesgos["Valor Mapa"] = (
-            st.session_state.riesgos["Amenaza Residual"] *
-            st.session_state.riesgos["Impacto"].map(
-                lambda x: tabla_impacto_mostrar.loc[tabla_impacto_mostrar["Nivel"] == x, "Valor"].values[0]
-            )
-        )
+# Mostrar matriz acumulativa
+st.header(t["matriz_acumulativa_titulo"])
 
-        matriz_calor = st.session_state.riesgos.pivot_table(
-            index="Tipo Impacto",
-            columns="Probabilidad",
-            values="Valor Mapa",
-            aggfunc=np.mean
-        ).fillna(0).sort_index()
+if not st.session_state.riesgos.empty:
+    st.dataframe(st.session_state.riesgos.style.applymap(
+        lambda c: f"background-color: {c}" if c in ["#008000", "#FFD700", "#FF8C00", "#FF0000"] else ""
+        , subset=["Color Criticidad"]))
 
-        fig, ax = plt.subplots(figsize=(7, 5))
-        sns.heatmap(
-            matriz_calor,
-            annot=True,
-            fmt=".2f",
-            cmap=cmap,
-            cbar_kws={"label": textos[idioma]["mapa_calor_titulo"]}
-        )
-        ax.set_xlabel(textos[idioma]["factor_probabilidad_titulo"])
-        ax.set_ylabel(textos[idioma]["tipo_impacto_titulo"])
-        st.pyplot(fig)
-
-        # Gráfico Pareto de riesgos
-        df_pareto = st.session_state.riesgos.copy()
-        df_pareto = df_pareto.sort_values(by="Riesgo Residual", ascending=False)
-        df_pareto["% Riesgo"] = 100 * df_pareto["Riesgo Residual"] / df_pareto["Riesgo Residual"].sum()
-        df_pareto["% Acumulado"] = df_pareto["% Riesgo"].cumsum()
-
-        fig2, ax1 = plt.subplots(figsize=(7, 5))
-        ax2 = ax1.twinx()
-        ax1.bar(df_pareto["Nombre Riesgo"], df_pareto["% Riesgo"], color="C0")
-        ax2.plot(df_pareto["Nombre Riesgo"], df_pareto["% Acumulado"], color="C1", marker="D", ms=5)
-        ax1.set_ylabel("% Riesgo")
-        ax2.set_ylabel("% Acumulado")
-        ax1.set_xticklabels(df_pareto["Nombre Riesgo"], rotation=45, ha="right")
-        st.pyplot(fig2)
-
-        # Matriz acumulativa de riesgos
-        st.subheader(textos[idioma]["matriz_acumulativa_titulo"])
-        matriz_acum = st.session_state.riesgos.pivot_table(
-            index="Tipo Impacto",
-            columns="Nombre Riesgo",
-            values="Riesgo Residual",
-            aggfunc=np.sum,
-            fill_value=0
-        )
-        st.dataframe(matriz_acum)
-
-        # Botón para exportar Excel
-        def to_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=True, sheet_name='Matriz_Riesgos')
-    processed_data = output.getvalue()
-    return processed_data
+        st.session_state.riesgos.to_excel(writer, sheet_name='Matriz de Riesgos', index=False)
+    excel_data = output.getvalue()
 
-        df_export = st.session_state.riesgos.drop(columns=["Color Criticidad"])
+    st.download_button(
+        label=t["descargar_excel"],
+        data=excel_data,
+        file_name="matriz_riesgos.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+else:
+    st.info(t["info_agrega_riesgos_matriz"])
 
-        excel_data = to_excel(df_export)
-        st.download_button(
-            label=textos[idioma]["descargar_excel"],
-            data=excel_data,
-            file_name='matriz_riesgos.xlsx',
-            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-
-    else:
-        st.info(textos[idioma]["info_agrega_riesgos"])
-
-
-  

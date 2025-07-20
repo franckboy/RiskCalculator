@@ -9,6 +9,52 @@ from matplotlib.colors import LinearSegmentedColormap
 
 st.set_page_config(layout="wide")
 
+# Diccionario multilenguaje
+textos = {
+    "es": {
+        "titulo": "Calculadora de Riesgos",
+        "nombre_riesgo": "Nombre del riesgo",
+        "descripcion": "Descripción del riesgo",
+        "tipo_impacto": "Tipo de Impacto",
+        "factor_exposicion": "Factor de Exposición",
+        "factor_probabilidad": "Factor de Probabilidad",
+        "amenaza_deliberada": "Amenaza Deliberada",
+        "efectividad_control": "Efectividad del control (%)",
+        "impacto_nivel": "Impacto (nivel 1-5)",
+        "resultados": "Resultados",
+        "agregar": "Agregar riesgo a la matriz",
+        "mapa_calor_grafico": "Mapa de Calor y Gráficos",
+        "diagrama_pareto": "Diagrama de Pareto",
+        "matriz_acumulativa": "Matriz Acumulativa de Riesgos",
+        "descargar_excel": "Descargar matriz de riesgos en Excel",
+        "sin_riesgos": "Agrega riesgos para mostrar la matriz acumulativa.",
+        "sin_graficos": "Agrega riesgos para mostrar mapa de calor y gráficos.",
+    },
+    "en": {
+        "titulo": "Risk Calculator",
+        "nombre_riesgo": "Risk Name",
+        "descripcion": "Risk Description",
+        "tipo_impacto": "Type of Impact",
+        "factor_exposicion": "Exposure Factor",
+        "factor_probabilidad": "Probability Factor",
+        "amenaza_deliberada": "Deliberate Threat",
+        "efectividad_control": "Control Effectiveness (%)",
+        "impacto_nivel": "Impact (level 1-5)",
+        "resultados": "Results",
+        "agregar": "Add risk to matrix",
+        "mapa_calor_grafico": "Heatmap and Charts",
+        "diagrama_pareto": "Pareto Chart",
+        "matriz_acumulativa": "Cumulative Risk Matrix",
+        "descargar_excel": "Download risk matrix Excel",
+        "sin_riesgos": "Add risks to display the cumulative matrix.",
+        "sin_graficos": "Add risks to display heatmap and charts.",
+    }
+}
+
+# Selector idioma arriba, antes del título
+idioma = st.selectbox("Selecciona idioma / Select Language", options=["es", "en"], index=0, label_visibility="visible")
+t = textos[idioma]
+
 # --- Tablas fijas para referencia ---
 tabla_efectividad = pd.DataFrame({
     "Rango": ["0%", "1 - 20%", "21-40%", "41-60%", "61-81%", "81-95%", "96-100%"],
@@ -111,21 +157,21 @@ with col_izq:
     mostrar_tabla_fija(tabla_impacto[["Codigo", "Tipo", "Ponderacion", "Justificacion"]], "Tipos de Impacto")
 
 with col_centro:
-    st.title("Calculadora de Riesgos")
-    st.subheader("Datos del Riesgo")
+    st.title(t["titulo"])
+    st.subheader(t["titulo"])
 
-    nombre_riesgo = st.text_input("Nombre del riesgo")
-    descripcion = st.text_area("Descripción del riesgo")
+    nombre_riesgo = st.text_input(t["nombre_riesgo"])
+    descripcion = st.text_area(t["descripcion"])
     tipo_impacto = st.selectbox(
-        "Tipo de Impacto",
+        t["tipo_impacto"],
         options=tabla_impacto["Tipo"],
         format_func=lambda x: f"{x} - {tabla_impacto.loc[tabla_impacto['Tipo']==x, 'Justificacion'].values[0]}"
     )
-    exposicion = st.selectbox("Factor de Exposición", options=tabla_exposicion["Factor"], format_func=lambda x: f"{x} - {tabla_exposicion.loc[tabla_exposicion['Factor']==x, 'Nivel'].values[0]}")
-    probabilidad = st.selectbox("Factor de Probabilidad", options=tabla_probabilidad["Factor"], format_func=lambda x: f"{x} - {tabla_probabilidad.loc[tabla_probabilidad['Factor']==x, 'Nivel'].values[0]}")
-    amenaza_deliberada = st.selectbox("Amenaza Deliberada", options=[1,2,3], format_func=lambda x: {1:"Baja",2:"Intermedia",3:"Alta"}[x], index=0)
-    efectividad = st.slider("Efectividad del control (%)", 0, 100, 50)
-    impacto_nivel = st.selectbox("Impacto (nivel 1-5)", options=[1,2,3,4,5])
+    exposicion = st.selectbox(t["factor_exposicion"], options=tabla_exposicion["Factor"], format_func=lambda x: f"{x} - {tabla_exposicion.loc[tabla_exposicion['Factor']==x, 'Nivel'].values[0]}")
+    probabilidad = st.selectbox(t["factor_probabilidad"], options=tabla_probabilidad["Factor"], format_func=lambda x: f"{x} - {tabla_probabilidad.loc[tabla_probabilidad['Factor']==x, 'Nivel'].values[0]}")
+    amenaza_deliberada = st.selectbox(t["amenaza_deliberada"], options=[1,2,3], format_func=lambda x: {1:"Baja",2:"Intermedia",3:"Alta"}[x], index=0)
+    efectividad = st.slider(t["efectividad_control"], 0, 100, 50)
+    impacto_nivel = st.selectbox(t["impacto_nivel"], options=[1,2,3,4,5])
     
     # Cálculos
     efec_norm = efectividad / 100
@@ -138,7 +184,7 @@ with col_centro:
     riesgo_residual = round(amenaza_residual_ajustada * valor_impacto, 4)
     clasificacion, color = clasificar_criticidad(riesgo_residual)
     
-    st.markdown("### Resultados:")
+    st.markdown(f"### {t['resultados']}:")
     st.write(f"- Amenaza Inherente: {amenaza_inherente}")
     st.write(f"- Amenaza Residual: {amenaza_residual}")
     st.write(f"- Amenaza Residual Ajustada (x Amenaza Deliberada): {amenaza_residual_ajustada}")
@@ -147,7 +193,7 @@ with col_centro:
     st.markdown(f"- Clasificación: **{clasificacion}**", unsafe_allow_html=True)
     st.markdown(f"<span style='color:{color}; font-weight:bold;'>■</span>", unsafe_allow_html=True)
     
-    if st.button("Agregar riesgo a la matriz") and nombre_riesgo.strip() != "":
+    if st.button(t["agregar"]) and nombre_riesgo.strip() != "":
         nuevo_riesgo = {
             "Nombre Riesgo": nombre_riesgo.strip(),
             "Descripción": descripcion.strip(),
@@ -168,52 +214,35 @@ with col_centro:
         st.success("Riesgo agregado a la matriz acumulativa.")
 
 with col_der:
-    st.header("Mapa de Calor y Gráficos")
+    st.header(t["mapa_calor_grafico"])
     if not st.session_state.riesgos.empty:
-        # Preparar datos
-        st.session_state.riesgos["Impacto Ajustado"] = st.session_state.riesgos["Impacto"] * st.session_state.riesgos["Tipo Impacto"].map(
-            dict(zip(tabla_impacto["Tipo"], tabla_impacto["Ponderacion"])))/100
-        
-        # Mapa de calor: probabilidad vs impacto ajustado (usando Riesgo residual)
+        st.session_state.riesgos["Impacto Valor"] = st.session_state.riesgos["Impacto"].map(lambda x: x)
+        st.session_state.riesgos["Probabilidad Ajustada"] = st.session_state.riesgos["Amenaza Residual Ajustada"]
+        st.session_state.riesgos["Probabilidad x Impacto"] = st.session_state.riesgos["Probabilidad Ajustada"] * st.session_state.riesgos["Impacto Valor"]
+
         matriz_calor = st.session_state.riesgos.pivot_table(
             index="Tipo Impacto",
-            columns="Probabilidad",
-            values="Riesgo Residual",
+            values="Probabilidad x Impacto",
             aggfunc=np.mean
         ).fillna(0).sort_index()
 
-        fig, ax = plt.subplots(figsize=(7,5))
+        fig, ax = plt.subplots(figsize=(6,5))
         sns.heatmap(
-            matriz_calor,
+            matriz_calor.to_frame(),
             annot=True,
             fmt=".2f",
             cmap=cmap,
-            cbar_kws={"label": "Riesgo Residual"}
+            cbar_kws={"label": "Probabilidad x Impacto"}
         )
-        ax.set_xlabel("Probabilidad")
-        ax.set_ylabel("Tipo de Impacto")
-        ax.set_title("Mapa de Calor: Riesgo Residual por Tipo Impacto y Probabilidad")
+        ax.set_xlabel(t["factor_probabilidad"])
+        ax.set_ylabel(t["tipo_impacto"])
         st.pyplot(fig)
-
-        # Diagrama de Pareto - Prioridad riesgos
-        st.subheader("Diagrama de Pareto")
-        pareto_df = st.session_state.riesgos.groupby("Tipo Impacto")["Riesgo Residual"].sum().reset_index()
-        pareto_df = pareto_df.sort_values(by="Riesgo Residual", ascending=False)
-        pareto_df["Acumulado"] = pareto_df["Riesgo Residual"].cumsum()
-
-        fig2, ax2 = plt.subplots()
-        ax2.bar(pareto_df["Tipo Impacto"], pareto_df["Riesgo Residual"], color="skyblue")
-        ax2.plot(pareto_df["Tipo Impacto"], pareto_df["Acumulado"], color="red", marker="o")
-        ax2.set_ylabel("Suma Riesgo Residual")
-        ax2.set_title("Diagrama de Pareto - Riesgos por Tipo de Impacto")
-        st.pyplot(fig2)
-
     else:
-        st.info("Agrega riesgos para mostrar mapa de calor y gráficos.")
+        st.info(t["sin_graficos"])
 
-# Matriz acumulativa abajo (full width)
 st.markdown("---")
-st.subheader("Matriz Acumulativa de Riesgos")
+st.header(t["matriz_acumulativa"])
+
 if not st.session_state.riesgos.empty:
     gb = GridOptionsBuilder.from_dataframe(st.session_state.riesgos)
     gb.configure_default_column(resizable=True, wrapText=True, autoHeight=True)
@@ -226,7 +255,6 @@ if not st.session_state.riesgos.empty:
         fit_columns_on_grid_load=True
     )
 
-    # Exportar Excel
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         st.session_state.riesgos.to_excel(writer, index=False, sheet_name="Riesgos")
@@ -234,10 +262,10 @@ if not st.session_state.riesgos.empty:
     processed_data = output.getvalue()
 
     st.download_button(
-        label="Descargar matriz de riesgos en Excel",
+        label=t["descargar_excel"],
         data=processed_data,
         file_name="matriz_riesgos.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 else:
-    st.info("Agrega riesgos para mostrar la matriz acumulativa.")
+    st.info(t["sin_riesgos"])

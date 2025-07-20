@@ -4,11 +4,10 @@ import numpy as np
 from st_aggrid import AgGrid, GridOptionsBuilder
 import seaborn as sns
 import matplotlib.pyplot as plt
-from io import BytesIO
 
 st.set_page_config(layout="wide", page_title="Calculadora de Riesgos ASIS")
 
-# === Tablas fijas ===
+# Tablas fijas
 
 tabla_efectividad = pd.DataFrame({
     "Efectividad Control": ["Alta", "Media", "Baja"],
@@ -64,7 +63,6 @@ tabla_semaforo = pd.DataFrame({
     "Color": ["🟩", "🟨", "🟧", "🟥"]
 })
 
-# --- Función para mostrar tablas con AgGrid con ajuste de texto ---
 def mostrar_tabla_aggrid(df, titulo, height=200):
     st.markdown(f"**{titulo}**")
     gb = GridOptionsBuilder.from_dataframe(df)
@@ -75,7 +73,6 @@ def mostrar_tabla_aggrid(df, titulo, height=200):
     AgGrid(df.reset_index(drop=True), gridOptions=gridOptions, fit_columns_on_grid_load=True, height=height)
     st.markdown("---")
 
-# --- Función para clasificar criticidad ---
 def clasificar_criticidad(valor):
     for i, row in tabla_criticidad.iterrows():
         limites = row["Rango"].split("-")
@@ -84,12 +81,11 @@ def clasificar_criticidad(valor):
             max_val = float(limites[1])
             if min_val <= valor <= max_val:
                 return row["Clasificación"], row["Color"]
-        else:  # Para rango ">30"
+        else:  # rango >30
             if valor > 30:
                 return row["Clasificación"], row["Color"]
     return "No Clasificado", "#000000"
 
-# --- Estado sesión riesgos ---
 if "riesgos" not in st.session_state:
     st.session_state.riesgos = pd.DataFrame(columns=[
         "Nombre Riesgo", "Descripción", "Efectividad Control", "Valor Efectividad",
@@ -98,11 +94,10 @@ if "riesgos" not in st.session_state:
         "Riesgo Residual"
     ])
 
-# === Layout de 3 columnas ===
+# Layout columnas
 col_izq, col_centro, col_der = st.columns([1.2, 2.0, 1.8])
 
 with col_izq:
-    # Tablas fijas ajustadas y ordenadas
     mostrar_tabla_aggrid(tabla_efectividad, "Efectividad de Controles")
     mostrar_tabla_aggrid(tabla_exposicion, "Factor de Exposición")
     mostrar_tabla_aggrid(tabla_probabilidad, "Factor de Probabilidad")
@@ -165,20 +160,19 @@ with col_centro:
     st.subheader("Matriz Acumulativa de Riesgos")
 
     if not st.session_state.riesgos.empty:
-        gb = GridOptionsBuilder.from_dataframe(st.session_state.riesgos[[
+        cols_esperadas = [
             "Nombre Riesgo", "Descripción", "Efectividad Control",
             "Exposición", "Probabilidad", "Amenaza Deliberada",
             "Impacto", "Riesgo Residual"
-        ]])
+        ]
+        cols_presentes = [c for c in cols_esperadas if c in st.session_state.riesgos.columns]
+
+        gb = GridOptionsBuilder.from_dataframe(st.session_state.riesgos[cols_presentes])
         gb.configure_pagination(paginationAutoPageSize=False, paginationPageSize=10)
         gb.configure_default_column(resizable=True, wrapText=True, autoHeight=True)
         gridOptions = gb.build()
-        AgGrid(st.session_state.riesgos[[
-            "Nombre Riesgo", "Descripción", "Efectividad Control",
-            "Exposición", "Probabilidad", "Amenaza Deliberada",
-            "Impacto", "Riesgo Residual"
-        ]], gridOptions=gridOptions, fit_columns_on_grid_load=True, height=300)
-        
+        AgGrid(st.session_state.riesgos[cols_presentes], gridOptions=gridOptions, fit_columns_on_grid_load=True, height=300)
+
         impacto_acumulado = st.session_state.riesgos["Riesgo Residual"].sum()
         indice_criticidad_global = round((impacto_acumulado / 294) * 100, 2)
         clasificacion_global, color_global = clasificar_criticidad(indice_criticidad_global)

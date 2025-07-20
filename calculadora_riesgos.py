@@ -1,108 +1,162 @@
 import streamlit as st
-from st_aggrid import AgGrid
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
+import plotly.graph_objects as go
+from st_aggrid import AgGrid, GridOptionsBuilder
+from io import BytesIO
 
-# --------------------
-# DATOS BASE FIJOS
-# --------------------
-with st.sidebar:
-    st.title("Tablas de Referencia")
+st.set_page_config(page_title="Evaluación de Riesgos", layout="wide")
 
-    # Ejemplo tabla de impacto
-    tabla_impacto = pd.DataFrame({
-        "Código": ["H", "A", "E", "O", "I", "T", "R", "S", "C"],
-        "Tipo de Impacto": [
-            "Humano", "Ambiental", "Económico", "Operacional",
-            "Infraestructura", "Tecnológico", "Reputacional", "Social", "Comercial"
-        ],
-        "Ponderación": [100, 85, 80, 75, 65, 60, 50, 45, 40],
-        "Justificación": [
-            "Afecta vida, salud o integridad. ISO 45001",
-            "Daños ecológicos irreversibles. ISO 14001",
-            "Pérdidas financieras. COSO ERM",
-            "Interrupción de procesos críticos. ISO 22301",
-            "Daño físico a instalaciones.",
-            "Fallas de sistemas o ciberataques. ISO 27005",
-            "Afecta imagen pública. COSO ERM",
-            "Impacta comunidades. ISO 26000",
-            "Pérdida de clientes o mercado."
-        ]
+# ---------- Datos base: tablas fijas ----------
+def cargar_tablas_fijas():
+    controles = pd.DataFrame({
+        "Clasificación": ["Alta", "Media", "Baja", "Ineficaz"],
+        "Valor": [0.1, 0.3, 0.6, 1.0]
     })
-    st.markdown("### Tipos de Impacto")
-    AgGrid(tabla_impacto, fit_columns_on_grid_load=True)
 
-# ----------------------
-# SECCIÓN CENTRAL
-# ----------------------
-with st.container():
-    st.title("Calculadora de Riesgos")
+    exposicion = pd.DataFrame({
+        "Descripción": ["Constante", "Frecuente", "Ocasional", "Rara vez"],
+        "Valor": [1.0, 0.75, 0.5, 0.25]
+    })
 
-    st.subheader("Descripción del Riesgo")
-    descripcion = st.text_input("Describe brevemente el riesgo")
+    probabilidad = pd.DataFrame({
+        "Descripción": ["Muy alta", "Alta", "Media", "Baja"],
+        "Valor": [1.0, 0.75, 0.5, 0.25]
+    })
 
-    tipo_riesgo = st.selectbox("Tipo de Impacto", options=tabla_impacto["Tipo de Impacto"])
-    ponderacion_impacto = tabla_impacto[tabla_impacto["Tipo de Impacto"] == tipo_riesgo]["Ponderación"].values[0]
+    impacto = pd.DataFrame({
+        "Descripción": ["Catastrófico", "Crítico", "Moderado", "Menor"],
+        "Valor": [1.0, 0.75, 0.5, 0.25]
+    })
 
-    st.markdown(f"**Ponderación Seleccionada:** {ponderacion_impacto}")
+    return controles, exposicion, probabilidad, impacto
 
-    exposicion = st.slider("Factor de exposición", min_value=1, max_value=5)
-    probabilidad = st.slider("Factor de probabilidad", min_value=1, max_value=5)
-    amenaza_deliberada = st.selectbox("Amenaza deliberada", [1, 2, 3])
+controles, exposicion, probabilidad, impacto = cargar_tablas_fijas()
 
-    riesgo_residual = exposicion * probabilidad * amenaza_deliberada
-    indice_criticidad = riesgo_residual * ponderacion_impacto
+# ---------- Sidebar: entrada de riesgo ----------
+st.sidebar.title("Ingreso de Riesgo")
+riesgo = st.sidebar.text_input("Nombre del riesgo")
+impacto_val = st.sidebar.selectbox("Impacto (afectación)", impacto["Valor"], format_func=lambda x: impacto[impacto["Valor"]==x]["Descripción"].values[0])
+probabilidad_base = st.sidebar.selectbox("Probabilidad (tras controles)", probabilidad["Valor"], format_func=lambda x: probabilidad[probabilidad["Valor"]==x]["Descripción"].values[0])
+exposicion_val = st.sidebar.selectbox("Factor de exposición", exposicion["Valor"], format_func=lambda x: exposicion[exposicion["Valor"]==x]["Descripción"].values[0])
+control_val = st.sidebar.selectbox("Efectividad de controles", controles["Valor"], format_func=lambda x: controles[controles["Valor"]==x]["Clasificación"].values[0])
+amenaza_deliberada = st.sidebar.slider("Amenaza deliberada (1 = baja, 3 = alta intención)", 1, 3, 1)
 
-    st.metric("Riesgo Residual", riesgo_residual)
-    st.metric("Índice de Criticidad", indice_criticidad)
+# ---------- Cálculo de criticidad ----------
+if riesgo:
+    # Ajustar probabilidad
+    prob_ajustada = probabilidad_base * control_val * exposicion_val * amenaza_deliberada
 
-# ----------------------
-# GRÁFICOS A LA DERECHA
-# ----------------------
-col1, col2, col3 = st.columns([1, 0.1, 1])
+    # Cálculo del índice de criticidad
+    criticidad = impacto_val * prob_ajustada
 
+    st.markdown(f"### Riesgo: `{riesgo}`")
+    st.metric("Índice de criticidad", f"{criticidad:.3f}")
+
+    # ---------- Guardar en lista acumulativa ----------
+    if "datos_riesgo" not in st.session_state:
+        st.session_state.datos_riesgo = []
+
+    if st.sidebar.button("Guardar riesgo"):
+        st.session_state.datos_riesgo.append({
+            "Riesgo": riesgo,
+            "Impacto": impacto_val,
+            "Probabilidad ajustada": prob_ajustada,
+            "Criticidad": criticidad
+        })
+
+# ---------- Mostrar matriz acumulativa ----------
+if st.session_state.get("datos_riesgo"):
+    st.markdown("## Matriz acumulativa de riesgos")
+    df = pd.DataFrame(st.session_state.datos_riesgo)
+
+    gb = GridOptionsBuilder.from_dataframe(df)
+    gb.configure_default_column(editable=False, filter=False, sortable=True)
+    grid_options = gb.build()
+
+    AgGrid(df, gridOptions=grid_options, height=300, theme="streamlit")
+
+    # ---------- Mapa de calor ----------
+    st.markdown("## Mapa de calor (Probabilidad vs Impacto)")
+
+    heatmap = pd.pivot_table(
+        df,
+        index="Probabilidad ajustada",
+        columns="Impacto",
+        values="Criticidad",
+        aggfunc="sum",
+        fill_value=0
+    )
+
+    st.dataframe(heatmap.style.background_gradient(cmap="YlOrRd"), height=300)
+
+    # ---------- Diagrama de Pareto ----------
+    st.markdown("## Diagrama de Pareto de Criticidad")
+
+    df_pareto = df.sort_values(by="Criticidad", ascending=False).copy()
+    df_pareto["Acumulado"] = df_pareto["Criticidad"].cumsum()
+    df_pareto["% Acumulado"] = 100 * df_pareto["Acumulado"] / df_pareto["Criticidad"].sum()
+
+    fig = go.Figure()
+
+    # Barras de criticidad
+    fig.add_trace(go.Bar(
+        x=df_pareto["Riesgo"],
+        y=df_pareto["Criticidad"],
+        name="Criticidad",
+        marker_color='indianred'
+    ))
+
+    # Línea acumulada
+    fig.add_trace(go.Scatter(
+        x=df_pareto["Riesgo"],
+        y=df_pareto["% Acumulado"],
+        name="% Acumulado",
+        yaxis='y2',
+        mode='lines+markers',
+        marker_color='blue'
+    ))
+
+    fig.update_layout(
+        title="Pareto de Riesgos",
+        xaxis=dict(title="Riesgo"),
+        yaxis=dict(title="Criticidad"),
+        yaxis2=dict(title="% Acumulado", overlaying='y', side='right', range=[0, 110]),
+        legend=dict(x=0.8, y=1.2)
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # ---------- Exportar a Excel ----------
+    st.markdown("## Exportar resultados")
+    def exportar_excel(df_export):
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_export.to_excel(writer, index=False, sheet_name='Riesgos')
+        return output.getvalue()
+
+    excel_data = exportar_excel(df)
+
+    st.download_button(
+        label="📥 Descargar Excel",
+        data=excel_data,
+        file_name="evaluacion_riesgos.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+# ---------- Mostrar tablas fijas sin scroll ni filtros ----------
+st.markdown("## Tablas fijas de referencia")
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown("**Efectividad de controles**")
+    st.dataframe(controles, use_container_width=True, hide_index=True)
+with col2:
+    st.markdown("**Factor de exposición**")
+    st.dataframe(exposicion, use_container_width=True, hide_index=True)
 with col3:
-    st.subheader("Mapa de Calor")
+    st.markdown("**Factor de probabilidad**")
+    st.dataframe(probabilidad, use_container_width=True, hide_index=True)
 
-    heat_data = np.zeros((5, 5))
-    heat_data[probabilidad - 1, int(ponderacion_impacto / 20) - 1] = indice_criticidad
+st.markdown("**Impacto o severidad**")
+st.dataframe(impacto, use_container_width=True, hide_index=True)
 
-    fig, ax = plt.subplots()
-    sns.heatmap(heat_data, cmap="YlOrRd", annot=True, fmt=".0f", cbar=True, ax=ax)
-    ax.set_title("Probabilidad vs Impacto")
-    ax.set_xlabel("Impacto")
-    ax.set_ylabel("Probabilidad")
-    st.pyplot(fig)
-
-    st.subheader("Diagrama de Pareto (Ejemplo)")
-    categorias = ["H", "A", "E", "O", "I", "T", "R", "S", "C"]
-    valores = tabla_impacto["Ponderación"].values
-    pareto_df = pd.DataFrame({"Categoría": categorias, "Valor": valores})
-    pareto_df = pareto_df.sort_values(by="Valor", ascending=False)
-    pareto_df["Acumulado"] = pareto_df["Valor"].cumsum()
-
-    fig2, ax2 = plt.subplots()
-    ax2.bar(pareto_df["Categoría"], pareto_df["Valor"], color="skyblue")
-    ax2.plot(pareto_df["Categoría"], pareto_df["Acumulado"], color="red", marker="o")
-    ax2.set_ylabel("Valor")
-    ax2.set_title("Diagrama de Pareto")
-    st.pyplot(fig2)
-
-# ----------------------
-# MATRIZ ACUMULATIVA ABAJO
-# ----------------------
-with st.container():
-    st.subheader("Matriz Acumulativa de Riesgos")
-    matriz = pd.DataFrame({
-        "Riesgo": [descripcion],
-        "Tipo": [tipo_riesgo],
-        "Impacto": [ponderacion_impacto],
-        "Exposición": [exposicion],
-        "Probabilidad": [probabilidad],
-        "Amenaza": [amenaza_deliberada],
-        "Residual": [riesgo_residual],
-        "Criticidad": [indice_criticidad]
-    })
-    AgGrid(matriz, fit_columns_on_grid_load=True)

@@ -1,157 +1,92 @@
 import streamlit as st
-from openpyxl import load_workbook
-from openpyxl.styles import PatternFill, Font
-from io import BytesIO
+import pandas as pd
+import numpy as np
 
-# --- Funciones auxiliares (igual que antes) ---
+# ---------------------------
+# Definición de columnas base
+# ---------------------------
+columnas = [
+    "ID Riesgo", "Nombre del Riesgo", "Amenaza", "Impacto", "Exposición (L+M)",
+    "Probabilidad (N)", "Amenaza Inherente (S = Amenaza x Impacto)",
+    "Impacto Normalizado (U)", "Riesgo Residual (W = S x U)",
+    "Índice de Criticidad (AA)", "Multiplicador Criticidad (AC)",
+    "Clasificación Control (K)", "Aceptabilidad (AB)",
+    "Suma Riesgos por Bloque (Z)"
+]
 
-def validar_rango(valor, minimo=0, maximo=1):
-    try:
-        val = float(valor)
-        return max(min(val, maximo), minimo)
-    except:
-        return minimo
+# ---------------------------
+# Título de la app
+# ---------------------------
+st.set_page_config(page_title="Matriz de Riesgos", layout="wide")
+st.title("Evaluación y Matriz de Riesgos")
 
-def clasificar_amenaza(val):
-    val = float(val)
-    if val <= 0.05:
-        return "Rara"
-    elif val <= 0.15:
-        return "Poco Probable"
-    elif val <= 0.4:
-        return "Posible"
-    elif val <= 0.7:
-        return "Probable"
-    else:
-        return "Casi Seguro"
+# ---------------------------
+# Cargar o inicializar la tabla
+# ---------------------------
+st.markdown("#### Ingresa los datos de los riesgos")
 
-def clasificar_impacto(val):
-    val = float(val)
-    if val <= 5:
-        return "Insignificante"
-    elif val <= 15:
-        return "Leve"
-    elif val <= 30:
-        return "Moderado"
-    elif val <= 60:
-        return "Grave"
-    else:
-        return "Crítico"
+if "datos" not in st.session_state:
+    df_vacio = pd.DataFrame(columns=columnas)
+    st.session_state.datos = df_vacio
 
-def clasificar_aceptabilidad(val):
-    val = float(val)
-    if val <= 0.7:
-        return "Aceptable"
-    elif val <= 3:
-        return "Tolerable"
-    elif val <= 7:
-        return "Inaceptable"
-    else:
-        return "Inadmisible"
+# ---------------------------
+# Formulario para agregar un nuevo riesgo
+# ---------------------------
+with st.form("nuevo_riesgo"):
+    col1, col2, col3 = st.columns(3)
 
-def evaluar_efectividad(efectividad):
-    ef = float(efectividad)
-    if ef == 0:
-        return "Inefectiva"
-    elif ef <= 0.2:
-        return "Limitada"
-    elif ef <= 0.4:
-        return "Baja"
-    elif ef <= 0.6:
-        return "Intermedia"
-    elif ef <= 0.81:
-        return "Alta"
-    elif ef <= 0.95:
-        return "Muy alta"
-    else:
-        return "Total"
+    with col1:
+        id_riesgo = st.text_input("ID Riesgo")
+        nombre = st.text_input("Nombre del Riesgo")
+        amenaza = st.number_input("Amenaza", min_value=0.0, max_value=5.0, step=0.1)
+        impacto = st.number_input("Impacto", min_value=0.0, max_value=5.0, step=0.1)
 
-def aplicar_color_criticidad(valor):
-    val = float(valor)
-    if val <= 2:
-        return "00FF00"  # Verde
-    elif val <= 4:
-        return "FFFF00"  # Amarillo
-    elif val <= 15:
-        return "FFA500"  # Naranja
-    else:
-        return "FF0000"  # Rojo
+    with col2:
+        exposicion = st.number_input("Exposición (L+M)", min_value=0.0, max_value=10.0, step=0.1)
+        probabilidad = st.number_input("Probabilidad (N)", min_value=0.0, max_value=10.0, step=0.1)
+        impacto_norm = st.number_input("Impacto Normalizado (U)", min_value=0.0, max_value=5.0, step=0.1)
+        multiplicador = st.number_input("Multiplicador Criticidad (AC)", min_value=0.0, max_value=5.0, step=0.1)
 
-# --- Función que procesa el workbook en memoria ---
+    with col3:
+        clasificacion = st.selectbox("Clasificación Control (K)", ["Muy eficaz", "Eficaz", "Moderado", "Débil", "Inexistente"])
+        aceptar = st.selectbox("Aceptabilidad (AB)", ["Aceptable", "Condicional", "No Aceptable"])
+        suma_riesgo_bloque = 0  # lo calcularemos luego
 
-def procesar_workbook(wb):
-    ws = wb.active
-    max_fila = ws.max_row
+    enviado = st.form_submit_button("Agregar riesgo")
 
-    for bloque_inicio in range(23, max_fila + 1, 14):
-        bloque_fin = min(bloque_inicio + 8, max_fila)
-        suma_W = 0
+    if enviado:
+        amenaza_inherente = amenaza * impacto
+        riesgo_residual = amenaza_inherente * impacto_norm
+        indice_criticidad = riesgo_residual * multiplicador
 
-        for fila in range(bloque_inicio, bloque_fin + 1):
-            efectividad = validar_rango(ws[f"I{fila}"].value)
-            exposicion = validar_rango(ws[f"L{fila}"].value)
-            probabilidad = validar_rango(ws[f"N{fila}"].value)
-            amenaza_inherente = validar_rango(ws[f"O{fila}"].value or 0)
+        nuevo = pd.DataFrame([[id_riesgo, nombre, amenaza, impacto, exposicion,
+                               probabilidad, amenaza_inherente, impacto_norm,
+                               riesgo_residual, indice_criticidad, multiplicador,
+                               clasificacion, aceptar, suma_riesgo_bloque]], columns=columnas)
 
-            Q = amenaza_inherente * exposicion * probabilidad * (1 - efectividad)
-            S = Q * (1 + 0.25 * (1 - efectividad))
-            impacto = float(ws[f"U{fila}"].value or 0.05)
-            W = S * impacto
+        st.session_state.datos = pd.concat([st.session_state.datos, nuevo], ignore_index=True)
+        st.success("✅ Riesgo agregado correctamente")
 
-            ws[f"Q{fila}"].value = Q
-            ws[f"R{fila}"].value = clasificar_amenaza(Q)
-            ws[f"S{fila}"].value = S
-            ws[f"T{fila}"].value = clasificar_amenaza(S)
-            ws[f"W{fila}"].value = W
-            ws[f"V{fila}"].value = clasificar_impacto(impacto)
-            ws[f"Y{fila}"].value = clasificar_aceptabilidad(W)
-            ws[f"K{fila}"].value = evaluar_efectividad(efectividad)
+# ---------------------------
+# Mostrar la matriz completa
+# ---------------------------
+if not st.session_state.datos.empty:
+    st.markdown("### 🧾 Matriz de Riesgos Calculada")
 
-            suma_W += W
+    # Recalcular columna Z (suma de W por bloque de 9)
+    df = st.session_state.datos.copy()
+    df["Suma Riesgos por Bloque (Z)"] = df.index // 9
+    z_vals = df.groupby("Suma Riesgos por Bloque (Z)")["Riesgo Residual (W = S x U)"].sum()
+    df["Suma Riesgos por Bloque (Z)"] = df["Suma Riesgos por Bloque (Z)"].map(z_vals)
 
-        ws[f"Z{bloque_inicio}"].value = suma_W
-        ws[f"AA{bloque_inicio}"].value = suma_W / 294 * 100
+    st.dataframe(df, use_container_width=True, hide_index=True)
 
-        factor_deliberada = 1.4
-        valor_ac_celda = ws[f"AC{bloque_inicio + 8}"].value
-        if valor_ac_celda and isinstance(valor_ac_celda, (int, float)) and 1 <= valor_ac_celda <= 3:
-            factor_deliberada = valor_ac_celda
-
-        valor_ac = ws[f"AA{bloque_inicio}"].value * factor_deliberada
-        ws[f"AC{bloque_inicio}"].value = valor_ac
-
-        color = aplicar_color_criticidad(valor_ac)
-        fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
-        ws[f"AC{bloque_inicio}"].fill = fill
-        ws[f"AC{bloque_inicio}"].font = Font(bold=True)
-        ws[f"AA{bloque_inicio}"].font = Font(bold=True)
-
-    return wb
-
-# --- Streamlit UI ---
-
-st.title("Calculadora de riesgos - Evaluación desde Excel")
-
-uploaded_file = st.file_uploader("Sube tu archivo Excel (.xlsm)", type=["xlsm", "xlsx"])
-
-if uploaded_file is not None:
-    try:
-        wb = load_workbook(filename=BytesIO(uploaded_file.read()), keep_vba=True)
-        wb = procesar_workbook(wb)
-
-        # Guardar resultado en memoria para descarga
-        output = BytesIO()
-        wb.save(output)
-        output.seek(0)
-
-        st.success("Archivo procesado correctamente 🎉")
-
+    with st.expander("📤 Exportar matriz a CSV"):
         st.download_button(
-            label="Descargar archivo procesado",
-            data=output,
-            file_name="resultado_evaluacion_riesgos.xlsm",
-            mime="application/vnd.ms-excel"
+            label="Descargar CSV",
+            data=df.to_csv(index=False).encode("utf-8"),
+            file_name="matriz_riesgos.csv",
+            mime="text/csv"
         )
-    except Exception as e:
-        st.error(f"Error procesando archivo: {e}")
-
+else:
+    st.info("No hay riesgos registrados todavía. Usa el formulario de arriba para añadir uno.")

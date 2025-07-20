@@ -76,7 +76,7 @@ tabla_efectividad = pd.DataFrame({
 })
 
 tabla_criticidad = pd.DataFrame({
-    "Límite Superior": [2, 4, 15, float('inf')],
+    "Límite Superior": [0.7, 3.0, 7.0, float('inf')],
     "Clasificación": ["ACEPTABLE", "TOLERABLE", "INACEPTABLE", "INADMISIBLE"],
     "Rango Aceptabilidad": [
         "Hasta 0.7",
@@ -136,16 +136,36 @@ with col_izq:
 
     mostrar_criticidad()
 
-with col_der:
+with col_central:
     st.title("Calculadora de Riesgos")
     st.subheader("Descripción del Riesgo")
     descripcion = st.text_area("Describe el riesgo brevemente", "")
 
     nombre_riesgo = st.text_input("Nombre del riesgo")
-    exposicion = st.selectbox("Factor de Exposición", tabla_exposicion["Factor"])
-    probabilidad = st.selectbox("Factor de Probabilidad", tabla_probabilidad["Factor"])
+
+    exposicion_nivel = st.selectbox(
+        "Nivel de Exposición",
+        options=tabla_exposicion.index,
+        format_func=lambda i: f"{tabla_exposicion.iloc[i]['Nivel']} ({tabla_exposicion.iloc[i]['Factor']})"
+    )
+    exposicion = tabla_exposicion.iloc[exposicion_nivel]['Factor']
+
+    probabilidad_nivel = st.selectbox(
+        "Nivel de Probabilidad",
+        options=tabla_probabilidad.index,
+        format_func=lambda i: f"{tabla_probabilidad.iloc[i]['Nivel']} ({tabla_probabilidad.iloc[i]['Factor']})"
+    )
+    probabilidad = tabla_probabilidad.iloc[probabilidad_nivel]['Factor']
+
     efectividad = st.slider("Efectividad del control (%)", 0, 100, 50)
-    impacto = st.slider("Impacto (1 a 5)", 1, 5, 3)
+
+    impacto_nivel = st.selectbox(
+        "Nivel de Impacto",
+        options=tabla_impacto.index,
+        format_func=lambda i: f"{tabla_impacto.iloc[i]['Clasificacion']} ({tabla_impacto.iloc[i]['Valor']})"
+    )
+    impacto = tabla_impacto.iloc[impacto_nivel]['Valor']
+
     tipo_impacto = st.selectbox(
         "Tipo de Impacto",
         ["Humano", "Económico", "Operacional", "Ambiental", "Infraestructura", "Tecnológico", "Reputacional", "Comercial", "Social"]
@@ -156,10 +176,23 @@ with col_der:
     amenaza_residual = round(amenaza_inherente * (1 - efec_norm), 4)
     riesgo_residual = round(amenaza_residual * impacto, 4)
 
+    def clasificar_riesgo(valor):
+        if valor <= 0.7:
+            return "ACEPTABLE"
+        elif valor <= 3.0:
+            return "TOLERABLE"
+        elif valor <= 7.0:
+            return "INACEPTABLE"
+        else:
+            return "INADMISIBLE"
+
+    clasificacion = clasificar_riesgo(riesgo_residual)
+
     st.markdown("### Resultados del nuevo riesgo:")
     st.write(f"- Amenaza Inherente: {amenaza_inherente}")
     st.write(f"- Amenaza Residual: {amenaza_residual}")
     st.write(f"- Riesgo Residual: {riesgo_residual}")
+    st.write(f"- Clasificación: **{clasificacion}**")
 
     if st.button("Agregar riesgo a la matriz") and nombre_riesgo.strip() != "":
         nuevo_riesgo = {
@@ -176,13 +209,20 @@ with col_der:
         st.session_state.riesgos = pd.concat([st.session_state.riesgos, pd.DataFrame([nuevo_riesgo])], ignore_index=True)
         st.success("Riesgo agregado.")
 
-with col_central:
+    if st.button("🔄 Limpiar matriz de riesgos"):
+        st.session_state.riesgos = pd.DataFrame(columns=st.session_state.riesgos.columns)
+        st.warning("Matriz de riesgos reiniciada.")
+
+with col_der:
     st.header("Matriz acumulativa de riesgos")
 
     if not st.session_state.riesgos.empty:
-        st.dataframe(st.session_state.riesgos)
+        riesgos = st.session_state.riesgos.copy()
+        riesgos["Clasificación"] = riesgos["Riesgo Residual"].apply(clasificar_riesgo)
 
-        matriz_calor = st.session_state.riesgos.pivot_table(
+        st.dataframe(riesgos)
+
+        matriz_calor = riesgos.pivot_table(
             index="Tipo Impacto",
             columns="Efectividad Control (%)",
             values="Riesgo Residual",
@@ -203,9 +243,19 @@ with col_central:
         ax.set_ylabel("Tipo de Impacto")
         st.pyplot(fig)
 
+        st.subheader("Comparación de Riesgo Residual por Escenario")
+        fig_bar, ax_bar = plt.subplots()
+        riesgos.plot(
+            x="Nombre Riesgo", y="Riesgo Residual", kind="barh",
+            ax=ax_bar, color="#1f77b4", legend=False
+        )
+        ax_bar.set_xlabel("Riesgo Residual")
+        ax_bar.set_ylabel("Escenario")
+        st.pyplot(fig_bar)
+
         output = BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            st.session_state.riesgos.to_excel(writer, index=False, sheet_name="Riesgos")
+            riesgos.to_excel(writer, index=False, sheet_name="Riesgos")
         processed_data = output.getvalue()
 
         st.download_button(

@@ -1,7 +1,9 @@
+import streamlit as st
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Font
+from io import BytesIO
 
-# Funciones auxiliares
+# --- Funciones auxiliares (igual que antes) ---
 
 def validar_rango(valor, minimo=0, maximo=1):
     try:
@@ -75,12 +77,10 @@ def aplicar_color_criticidad(valor):
     else:
         return "FF0000"  # Rojo
 
-# Función principal que procesa el archivo
+# --- Función que procesa el workbook en memoria ---
 
-def procesar_archivo_excel(path_archivo):
-    wb = load_workbook(path_archivo, keep_vba=True)
+def procesar_workbook(wb):
     ws = wb.active
-
     max_fila = ws.max_row
 
     for bloque_inicio in range(23, max_fila + 1, 14):
@@ -126,11 +126,32 @@ def procesar_archivo_excel(path_archivo):
         ws[f"AC{bloque_inicio}"].font = Font(bold=True)
         ws[f"AA{bloque_inicio}"].font = Font(bold=True)
 
-    wb.save("resultado_evaluacion_riesgos.xlsm")
-    print("Archivo procesado y guardado como 'resultado_evaluacion_riesgos.xlsm'")
+    return wb
 
-# Ejecutar el script directamente
+# --- Streamlit UI ---
 
-if __name__ == "__main__":
-    procesar_archivo_excel("PCTSEP-A02-I01 Evaluacion de riesgos2.xlsm")
+st.title("Calculadora de riesgos - Evaluación desde Excel")
+
+uploaded_file = st.file_uploader("Sube tu archivo Excel (.xlsm)", type=["xlsm", "xlsx"])
+
+if uploaded_file is not None:
+    try:
+        wb = load_workbook(filename=BytesIO(uploaded_file.read()), keep_vba=True)
+        wb = procesar_workbook(wb)
+
+        # Guardar resultado en memoria para descarga
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        st.success("Archivo procesado correctamente 🎉")
+
+        st.download_button(
+            label="Descargar archivo procesado",
+            data=output,
+            file_name="resultado_evaluacion_riesgos.xlsm",
+            mime="application/vnd.ms-excel"
+        )
+    except Exception as e:
+        st.error(f"Error procesando archivo: {e}")
 

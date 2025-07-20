@@ -1,92 +1,149 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from io import BytesIO
 
-# ---------------------------
-# Definición de columnas base
-# ---------------------------
-columnas = [
-    "ID Riesgo", "Nombre del Riesgo", "Amenaza", "Impacto", "Exposición (L+M)",
-    "Probabilidad (N)", "Amenaza Inherente (S = Amenaza x Impacto)",
-    "Impacto Normalizado (U)", "Riesgo Residual (W = S x U)",
-    "Índice de Criticidad (AA)", "Multiplicador Criticidad (AC)",
-    "Clasificación Control (K)", "Aceptabilidad (AB)",
-    "Suma Riesgos por Bloque (Z)"
-]
+# ---------- Tablas de referencia ----------
+tabla_amenaza = pd.DataFrame({
+    "Nivel": [1, 2, 3, 4, 5],
+    "Clasificacion": ["Rara", "Poco Probable", "Posible", "Probable", "Casi Seguro"],
+    "Rango": ["≤ 0.05", "0.06 – 0.15", "0.16 – 0.40", "0.41 – 0.70", "> 0.70"],
+    "Factor": [0.04, 0.10, 0.25, 0.55, 0.85],
+    "Definición de Nombre": [
+        "Evento muy poco probable",
+        "Posible en circunstancias poco comunes",
+        "Puede ocurrir ocasionalmente",
+        "Ocurre con frecuencia",
+        "Ocurre casi siempre o siempre"
+    ]
+})
 
-# ---------------------------
-# Título de la app
-# ---------------------------
-st.set_page_config(page_title="Matriz de Riesgos", layout="wide")
-st.title("Evaluación y Matriz de Riesgos")
+tabla_exposicion = pd.DataFrame({
+    "Factor": [0.05, 0.15, 0.30, 0.55, 0.85],
+    "Nivel": ["Muy Baja", "Baja", "Moderada", "Alta", "Muy Alta"],
+    "Definición": [
+        "Exposición extremadamente rara",
+        "Exposición ocasional (cada 10 años)",
+        "Exposición algunas veces al año",
+        "Exposición mensual",
+        "Exposición frecuente o semanal"
+    ]
+})
 
-# ---------------------------
-# Cargar o inicializar la tabla
-# ---------------------------
-st.markdown("#### Ingresa los datos de los riesgos")
+tabla_probabilidad = pd.DataFrame({
+    "Factor": [0.05, 0.15, 0.30, 0.55, 0.85],
+    "Nivel": ["Muy Baja", "Baja", "Moderada", "Alta", "Muy Alta"],
+    "Descripción": [
+        "En condiciones excepcionales",
+        "Ha sucedido alguna vez",
+        "Podría ocurrir ocasionalmente",
+        "Probable en ocasiones",
+        "Ocurre con frecuencia / inminente"
+    ]
+})
 
-if "datos" not in st.session_state:
-    df_vacio = pd.DataFrame(columns=columnas)
-    st.session_state.datos = df_vacio
+tipos_impacto = {
+    "H": "Humano",
+    "E": "Económico",
+    "O": "Operacional",
+    "A": "Ambiental",
+    "I": "Infraestructura",
+    "T": "Tecnológico",
+    "R": "Reputacional",
+    "C": "Comercial",
+    "S": "Social"
+}
 
-# ---------------------------
-# Formulario para agregar un nuevo riesgo
-# ---------------------------
-with st.form("nuevo_riesgo"):
-    col1, col2, col3 = st.columns(3)
+# ---------- Inicialización ----------
 
-    with col1:
-        id_riesgo = st.text_input("ID Riesgo")
-        nombre = st.text_input("Nombre del Riesgo")
-        amenaza = st.number_input("Amenaza", min_value=0.0, max_value=5.0, step=0.1)
-        impacto = st.number_input("Impacto", min_value=0.0, max_value=5.0, step=0.1)
+st.title("Calculadora de Riesgos - Matriz Acumulativa con Mapa de Calor")
 
-    with col2:
-        exposicion = st.number_input("Exposición (L+M)", min_value=0.0, max_value=10.0, step=0.1)
-        probabilidad = st.number_input("Probabilidad (N)", min_value=0.0, max_value=10.0, step=0.1)
-        impacto_norm = st.number_input("Impacto Normalizado (U)", min_value=0.0, max_value=5.0, step=0.1)
-        multiplicador = st.number_input("Multiplicador Criticidad (AC)", min_value=0.0, max_value=5.0, step=0.1)
+if "riesgos" not in st.session_state:
+    st.session_state.riesgos = pd.DataFrame(columns=[
+        "Exposición", "Probabilidad", "Efectividad Control (%)", "Impacto", "Tipo Impacto",
+        "Amenaza Inherente", "Amenaza Residual", "Riesgo Residual"
+    ])
 
-    with col3:
-        clasificacion = st.selectbox("Clasificación Control (K)", ["Muy eficaz", "Eficaz", "Moderado", "Débil", "Inexistente"])
-        aceptar = st.selectbox("Aceptabilidad (AB)", ["Aceptable", "Condicional", "No Aceptable"])
-        suma_riesgo_bloque = 0  # lo calcularemos luego
+# ---------- Formulario para nuevo riesgo ----------
 
-    enviado = st.form_submit_button("Agregar riesgo")
+st.header("Agregar nuevo riesgo")
 
-    if enviado:
-        amenaza_inherente = amenaza * impacto
-        riesgo_residual = amenaza_inherente * impacto_norm
-        indice_criticidad = riesgo_residual * multiplicador
+col1, col2, col3 = st.columns(3)
 
-        nuevo = pd.DataFrame([[id_riesgo, nombre, amenaza, impacto, exposicion,
-                               probabilidad, amenaza_inherente, impacto_norm,
-                               riesgo_residual, indice_criticidad, multiplicador,
-                               clasificacion, aceptar, suma_riesgo_bloque]], columns=columnas)
+with col1:
+    exposicion = st.selectbox("Factor de Exposición", tabla_exposicion["Factor"])
+    probabilidad = st.selectbox("Factor de Probabilidad", tabla_probabilidad["Factor"])
 
-        st.session_state.datos = pd.concat([st.session_state.datos, nuevo], ignore_index=True)
-        st.success("✅ Riesgo agregado correctamente")
+with col2:
+    efectividad = st.slider("Efectividad del control (%)", 0, 100, 50)
+    impacto = st.slider("Impacto (1 a 5)", 1, 5, 3)
 
-# ---------------------------
-# Mostrar la matriz completa
-# ---------------------------
-if not st.session_state.datos.empty:
-    st.markdown("### 🧾 Matriz de Riesgos Calculada")
+with col3:
+    tipo_impacto = st.selectbox("Tipo de Impacto", list(tipos_impacto.keys()), format_func=lambda x: f"{x} - {tipos_impacto[x]}")
 
-    # Recalcular columna Z (suma de W por bloque de 9)
-    df = st.session_state.datos.copy()
-    df["Suma Riesgos por Bloque (Z)"] = df.index // 9
-    z_vals = df.groupby("Suma Riesgos por Bloque (Z)")["Riesgo Residual (W = S x U)"].sum()
-    df["Suma Riesgos por Bloque (Z)"] = df["Suma Riesgos por Bloque (Z)"].map(z_vals)
+# ---------- Cálculos ----------
 
-    st.dataframe(df, use_container_width=True, hide_index=True)
+efec_norm = efectividad / 100
+amenaza_inherente = round(exposicion * probabilidad, 4)
+amenaza_residual = round(amenaza_inherente * (1 - efec_norm), 4)
+riesgo_residual = round(amenaza_residual * impacto, 4)
 
-    with st.expander("📤 Exportar matriz a CSV"):
-        st.download_button(
-            label="Descargar CSV",
-            data=df.to_csv(index=False).encode("utf-8"),
-            file_name="matriz_riesgos.csv",
-            mime="text/csv"
-        )
+st.markdown("### Resultados del nuevo riesgo:")
+st.write(f"- Amenaza Inherente: {amenaza_inherente}")
+st.write(f"- Amenaza Residual: {amenaza_residual}")
+st.write(f"- Riesgo Residual: {riesgo_residual}")
+
+# ---------- Botón para guardar riesgo ----------
+
+if st.button("Agregar riesgo a la matriz"):
+    nuevo_riesgo = {
+        "Exposición": exposicion,
+        "Probabilidad": probabilidad,
+        "Efectividad Control (%)": efectividad,
+        "Impacto": impacto,
+        "Tipo Impacto": f"{tipo_impacto} - {tipos_impacto[tipo_impacto]}",
+        "Amenaza Inherente": amenaza_inherente,
+        "Amenaza Residual": amenaza_residual,
+        "Riesgo Residual": riesgo_residual
+    }
+    st.session_state.riesgos = pd.concat([st.session_state.riesgos, pd.DataFrame([nuevo_riesgo])], ignore_index=True)
+    st.success("Riesgo agregado.")
+
+# ---------- Mostrar matriz acumulativa ----------
+
+st.header("Matriz acumulativa de riesgos")
+
+if not st.session_state.riesgos.empty:
+    st.dataframe(st.session_state.riesgos)
+
+    # Crear matriz para mapa de calor
+    matriz_calor = st.session_state.riesgos.pivot_table(
+        index="Tipo Impacto", columns="Efectividad Control (%)", values="Riesgo Residual", aggfunc=np.mean
+    ).fillna(0)
+
+    st.subheader("Mapa de calor de Riesgo Residual por Tipo de Impacto y Efectividad del Control")
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.heatmap(matriz_calor, annot=True, cmap="YlOrRd", ax=ax, fmt=".2f")
+    ax.set_xlabel("Efectividad Control (%)")
+    ax.set_ylabel("Tipo de Impacto")
+    st.pyplot(fig)
+
+    # Descargar Excel
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        st.session_state.riesgos.to_excel(writer, index=False, sheet_name="Riesgos")
+        writer.save()
+        processed_data = output.getvalue()
+
+    st.download_button(
+        label="Descargar matriz de riesgos en Excel",
+        data=processed_data,
+        file_name="matriz_riesgos.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 else:
-    st.info("No hay riesgos registrados todavía. Usa el formulario de arriba para añadir uno.")
+    st.info("Agrega riesgos para que se muestre la matriz acumulativa y el mapa de calor.")
+

@@ -484,21 +484,28 @@ with col_der:
     else:
         st.info(textos[idioma]["info_agrega_riesgos"])
 
-    # Mostrar matriz acumulativa
-with st.container():  # <-- Añade este contenedor
-    st.header(textos[idioma]["matriz_acumulativa_titulo"])
-    if not st.session_state.riesgos.empty:
-        st.dataframe(st.session_state.riesgos)
-        
-        # Botón para descargar Excel
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            st.session_state.riesgos.to_excel(writer, sheet_name='Matriz de Riesgos', index=False)
-        st.download_button(
-            label=textos[idioma]["descargar_excel"],
-            data=output.getvalue(),
-            file_name="matriz_riesgos.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+ # Mostrar matriz acumulativa
+st.header(textos[idioma]["matriz_acumulativa_titulo"])
+if not st.session_state.riesgos.empty:
+    # --- ÚNICO CAMBIO: Fórmula de riesgo residual (agregar esto ANTES de mostrar el dataframe) ---
+    if "Riesgo Inherente" in st.session_state.riesgos.columns and "Efectividad Controles" in st.session_state.riesgos.columns:
+        st.session_state.riesgos["Riesgo Residual"] = (
+            st.session_state.riesgos["Riesgo Inherente"] * 
+            (1 - st.session_state.riesgos["Efectividad Controles"])
         )
-    else:
-        st.info(textos[idioma]["info_agrega_riesgos_matriz"])
+    # --- Fin del cambio ---
+    
+    st.dataframe(st.session_state.riesgos)
+    
+    # Botón para descargar Excel (esto se mantiene igual)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        st.session_state.riesgos.to_excel(writer, sheet_name='Matriz de Riesgos', index=False)
+    st.download_button(
+        label=textos[idioma]["descargar_excel"],
+        data=output.getvalue(),
+        file_name="matriz_riesgos.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+else:
+    st.info(textos[idioma]["info_agrega_riesgos_matriz"])

@@ -3,13 +3,14 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 from st_aggrid import AgGrid, GridOptionsBuilder
 from io import BytesIO
 from matplotlib.colors import LinearSegmentedColormap
 
 st.set_page_config(layout="wide")
 
-# Diccionario multilenguaje
+# Textos multilenguaje completos para UI y listas
 textos = {
     "es": {
         "titulo": "Calculadora de Riesgos",
@@ -29,6 +30,21 @@ textos = {
         "descargar_excel": "Descargar matriz de riesgos en Excel",
         "sin_riesgos": "Agrega riesgos para mostrar la matriz acumulativa.",
         "sin_graficos": "Agrega riesgos para mostrar mapa de calor y gráficos.",
+        "exposicion_niveles": ["Muy Baja", "Baja", "Moderada", "Alta", "Muy Alta"],
+        "probabilidad_niveles": ["Muy Baja", "Baja", "Moderada", "Alta", "Muy Alta"],
+        "amenaza_niveles": ["Baja", "Intermedia", "Alta"],
+        "impacto_niveles": ["1 - No afecta significativamente", "2 - Afectación menor", "3 - Afectación parcial y temporal", "4 - Afectación significativa", "5 - Impacto serio o pérdida total"],
+        "tipos_impacto": {
+            "H": ("Humano", "Afecta directamente la vida, salud o integridad de las personas. Prioridad máxima según ISO 45001."),
+            "A": ("Ambiental", "Daños ecológicos pueden ser irreversibles y conllevan sanciones graves. ISO 14001."),
+            "E": ("Económico", "Pérdidas financieras afectan continuidad y viabilidad del negocio. COSO ERM."),
+            "O": ("Operacional", "Interrumpe procesos críticos, producción o servicios clave. ISO 22301."),
+            "I": ("Infraestructura", "Daño físico a instalaciones o activos afecta operaciones y seguridad."),
+            "T": ("Tecnológico", "Fallas de sistemas o ciberataques afectan datos y procesos. ISO 27005."),
+            "R": ("Reputacional", "Afecta imagen pública, confianza y puede derivar en sanciones indirectas. COSO ERM."),
+            "S": ("Social", "Impacta comunidades, condiciones laborales o responsabilidad social. ISO 26000."),
+            "C": ("Comercial", "Pérdida de clientes, contratos o mercado. Es recuperable pero afecta ingresos.")
+        }
     },
     "en": {
         "titulo": "Risk Calculator",
@@ -48,14 +64,25 @@ textos = {
         "descargar_excel": "Download risk matrix Excel",
         "sin_riesgos": "Add risks to display the cumulative matrix.",
         "sin_graficos": "Add risks to display heatmap and charts.",
+        "exposicion_niveles": ["Very Low", "Low", "Moderate", "High", "Very High"],
+        "probabilidad_niveles": ["Very Low", "Low", "Moderate", "High", "Very High"],
+        "amenaza_niveles": ["Low", "Medium", "High"],
+        "impacto_niveles": ["1 - No significant effect", "2 - Minor impact", "3 - Partial and temporary impact", "4 - Significant impact", "5 - Serious impact or total loss"],
+        "tipos_impacto": {
+            "H": ("Human", "Directly affects life, health, or integrity of people. Highest priority per ISO 45001."),
+            "A": ("Environmental", "Ecological damage can be irreversible with severe penalties. ISO 14001."),
+            "E": ("Economic", "Financial losses affect business continuity and viability. COSO ERM."),
+            "O": ("Operational", "Interrupts critical processes, production or key services. ISO 22301."),
+            "I": ("Infrastructure", "Physical damage to facilities or assets affects operations and safety."),
+            "T": ("Technological", "System failures or cyberattacks affect data and processes. ISO 27005."),
+            "R": ("Reputational", "Affects public image, trust, and may lead to indirect penalties. COSO ERM."),
+            "S": ("Social", "Impacts communities, labor conditions or social responsibility. ISO 26000."),
+            "C": ("Commercial", "Loss of customers, contracts or market. Recoverable but affects income.")
+        }
     }
 }
 
-# Selector idioma arriba, antes del título
-idioma = st.selectbox("Selecciona idioma / Select Language", options=["es", "en"], index=0, label_visibility="visible")
-t = textos[idioma]
-
-# --- Tablas fijas para referencia ---
+# Datos técnicos (factores numéricos, fijos)
 tabla_efectividad = pd.DataFrame({
     "Rango": ["0%", "1 - 20%", "21-40%", "41-60%", "61-81%", "81-95%", "96-100%"],
     "Factor": [0, 0.1, 0.3, 0.5, 0.7, 0.9, 0.1],
@@ -71,56 +98,10 @@ tabla_efectividad = pd.DataFrame({
     ]
 })
 
-tabla_exposicion = pd.DataFrame({
-    "Factor": [0.05, 0.15, 0.30, 0.55, 0.85],
-    "Nivel": ["Muy Baja", "Baja", "Moderada", "Alta", "Muy Alta"],
-    "Descripcion": [
-        "Exposición extremadamente rara",
-        "Exposición ocasional (cada 10 años)",
-        "Exposición algunas veces al año",
-        "Exposición mensual",
-        "Exposición frecuente o semanal"
-    ]
-})
+factores_exposicion = [0.05, 0.15, 0.30, 0.55, 0.85]
+factores_probabilidad = [0.05, 0.15, 0.30, 0.55, 0.85]
 
-tabla_probabilidad = pd.DataFrame({
-    "Factor": [0.05, 0.15, 0.30, 0.55, 0.85],
-    "Nivel": ["Muy Baja", "Baja", "Moderada", "Alta", "Muy Alta"],
-    "Descripcion": [
-        "En condiciones excepcionales",
-        "Ha sucedido alguna vez",
-        "Podría ocurrir ocasionalmente",
-        "Probable en ocasiones",
-        "Ocurre con frecuencia / inminente"
-    ]
-})
-
-tabla_impacto = pd.DataFrame({
-    "Codigo": ["H","A","E","O","I","T","R","S","C"],
-    "Tipo": ["Humano", "Ambiental", "Económico", "Operacional", "Infraestructura", "Tecnológico", "Reputacional", "Social", "Comercial"],
-    "Ponderacion": [100, 85, 80, 75, 65, 60, 50, 45, 40],
-    "Justificacion": [
-        "Afecta directamente la vida, salud o integridad de las personas. Prioridad máxima según ISO 45001.",
-        "Daños ecológicos pueden ser irreversibles y conllevan sanciones graves. ISO 14001.",
-        "Pérdidas financieras afectan continuidad y viabilidad del negocio. COSO ERM.",
-        "Interrumpe procesos críticos, producción o servicios clave. ISO 22301.",
-        "Daño físico a instalaciones o activos afecta operaciones y seguridad.",
-        "Fallas de sistemas o ciberataques afectan datos y procesos. ISO 27005.",
-        "Afecta imagen pública, confianza y puede derivar en sanciones indirectas. COSO ERM.",
-        "Impacta comunidades, condiciones laborales o responsabilidad social. ISO 26000.",
-        "Pérdida de clientes, contratos o mercado. Es recuperable pero afecta ingresos."
-    ]
-})
-
-tabla_criticidad = pd.DataFrame({
-    "Límite Superior": [2, 4, 15, float('inf')],
-    "Clasificación": ["ACEPTABLE", "TOLERABLE", "INACEPTABLE", "INADMISIBLE"],
-    "Color": ["Verde", "Amarillo", "Naranja", "Rojo"]
-})
-
-colors = ["#008000", "#FFD700", "#FF8C00", "#FF0000"]
-cmap = LinearSegmentedColormap.from_list("criticidad_cmap", colors, N=256)
-
+# Funciones auxiliares
 def clasificar_criticidad(valor):
     if valor <= 2:
         return "ACEPTABLE", "#008000"
@@ -139,6 +120,45 @@ def mostrar_tabla_fija(df, titulo):
     gridOptions = gb.build()
     AgGrid(df, gridOptions=gridOptions, height=min(250, 35*len(df)), fit_columns_on_grid_load=True, enable_enterprise_modules=False, update_mode='NO_UPDATE')
 
+# Aplicación
+
+idioma = st.selectbox("Selecciona idioma / Select Language", options=["es", "en"], index=0)
+t = textos[idioma]
+
+# Prepara tablas fijas con traducción para exposición, probabilidad, amenaza deliberada e impacto
+tabla_exposicion = pd.DataFrame({
+    "Factor": factores_exposicion,
+    "Nivel": t["exposicion_niveles"],
+    "Descripcion": ["" for _ in factores_exposicion]
+})
+
+tabla_probabilidad = pd.DataFrame({
+    "Factor": factores_probabilidad,
+    "Nivel": t["probabilidad_niveles"],
+    "Descripcion": ["" for _ in factores_probabilidad]
+})
+
+# Amenaza deliberada opciones con traducción
+opciones_amenaza = {1:t["amenaza_niveles"][0], 2:t["amenaza_niveles"][1], 3:t["amenaza_niveles"][2]}
+
+# Impacto niveles traducidos
+impacto_niveles_opciones = t["impacto_niveles"]
+
+# Tipos impacto traducidos y con justificación
+tipos_codigo = list(t["tipos_impacto"].keys())
+tipos_nombre = [v[0] for v in t["tipos_impacto"].values()]
+tipos_justificacion = [v[1] for v in t["tipos_impacto"].values()]
+
+tabla_impacto = pd.DataFrame({
+    "Codigo": tipos_codigo,
+    "Tipo": tipos_nombre,
+    "Justificacion": tipos_justificacion
+})
+
+# Tablas fijas técnicas (sin traducir)
+tabla_efectividad_static = tabla_efectividad.copy()
+
+# Inicializar DataFrame en sesión
 if "riesgos" not in st.session_state:
     st.session_state.riesgos = pd.DataFrame(columns=[
         "Nombre Riesgo", "Descripción", "Exposición", "Probabilidad", "Amenaza Deliberada",
@@ -147,14 +167,13 @@ if "riesgos" not in st.session_state:
         "Clasificación Criticidad", "Color Criticidad"
     ])
 
-# --- Layout columnas ---
 col_izq, col_centro, col_der = st.columns([1.2, 2, 1.5])
 
 with col_izq:
-    mostrar_tabla_fija(tabla_efectividad[["Rango", "Mitigacion", "Descripcion"]], "Efectividad de Controles")
-    mostrar_tabla_fija(tabla_exposicion[["Factor", "Nivel", "Descripcion"]], "Factor de Exposición")
-    mostrar_tabla_fija(tabla_probabilidad[["Factor", "Nivel", "Descripcion"]], "Factor de Probabilidad")
-    mostrar_tabla_fija(tabla_impacto[["Codigo", "Tipo", "Ponderacion", "Justificacion"]], "Tipos de Impacto")
+    mostrar_tabla_fija(tabla_efectividad_static[["Rango", "Mitigacion", "Descripcion"]], "Efectividad de Controles")
+    mostrar_tabla_fija(tabla_exposicion[["Factor", "Nivel", "Descripcion"]], t["factor_exposicion"])
+    mostrar_tabla_fija(tabla_probabilidad[["Factor", "Nivel", "Descripcion"]], t["factor_probabilidad"])
+    mostrar_tabla_fija(tabla_impacto[["Codigo", "Tipo", "Justificacion"]], t["tipo_impacto"])
 
 with col_centro:
     st.title(t["titulo"])
@@ -162,47 +181,78 @@ with col_centro:
 
     nombre_riesgo = st.text_input(t["nombre_riesgo"])
     descripcion = st.text_area(t["descripcion"])
-    tipo_impacto = st.selectbox(
+
+    tipo_impacto_sel = st.selectbox(
         t["tipo_impacto"],
         options=tabla_impacto["Tipo"],
         format_func=lambda x: f"{x} - {tabla_impacto.loc[tabla_impacto['Tipo']==x, 'Justificacion'].values[0]}"
     )
-    exposicion = st.selectbox(t["factor_exposicion"], options=tabla_exposicion["Factor"], format_func=lambda x: f"{x} - {tabla_exposicion.loc[tabla_exposicion['Factor']==x, 'Nivel'].values[0]}")
-    probabilidad = st.selectbox(t["factor_probabilidad"], options=tabla_probabilidad["Factor"], format_func=lambda x: f"{x} - {tabla_probabilidad.loc[tabla_probabilidad['Factor']==x, 'Nivel'].values[0]}")
-    amenaza_deliberada = st.selectbox(t["amenaza_deliberada"], options=[1,2,3], format_func=lambda x: {1:"Baja",2:"Intermedia",3:"Alta"}[x], index=0)
+
+    exposicion_sel = st.selectbox(
+        t["factor_exposicion"],
+        options=tabla_exposicion["Factor"],
+        format_func=lambda x: f"{x} - {tabla_exposicion.loc[tabla_exposicion['Factor']==x, 'Nivel'].values[0]}"
+    )
+
+    probabilidad_sel = st.selectbox(
+        t["factor_probabilidad"],
+        options=tabla_probabilidad["Factor"],
+        format_func=lambda x: f"{x} - {tabla_probabilidad.loc[tabla_probabilidad['Factor']==x, 'Nivel'].values[0]}"
+    )
+
+    amenaza_deliberada_sel = st.selectbox(
+        t["amenaza_deliberada"],
+        options=[1, 2, 3],
+        format_func=lambda x: opciones_amenaza[x]
+    )
+
     efectividad = st.slider(t["efectividad_control"], 0, 100, 50)
-    impacto_nivel = st.selectbox(t["impacto_nivel"], options=[1,2,3,4,5])
-    
+
+    impacto_nivel_sel = st.selectbox(t["impacto_nivel"], options=[1, 2, 3, 4, 5], format_func=lambda x: impacto_niveles_opciones[x-1])
+
     # Cálculos
     efec_norm = efectividad / 100
-    amenaza_inherente = round(exposicion * probabilidad, 4)
+    amenaza_inherente = round(exposicion_sel * probabilidad_sel, 4)
     amenaza_residual = round(amenaza_inherente * (1 - efec_norm), 4)
-    amenaza_residual_ajustada = round(amenaza_residual * amenaza_deliberada, 4)
-    
-    valor_impacto = impacto_nivel * tabla_impacto.loc[tabla_impacto["Tipo"] == tipo_impacto, "Ponderacion"].values[0] / 100
-    
-    riesgo_residual = round(amenaza_residual_ajustada * valor_impacto, 4)
+    amenaza_residual_ajustada = round(amenaza_residual * amenaza_deliberada_sel, 4)
+
+    # Obtener ponderación para tipo impacto
+    ponderacion_impacto = tabla_impacto.loc[tabla_impacto["Tipo"] == tipo_impacto_sel, "Codigo"].map({
+        "H": 100, "A": 85, "E": 80, "O": 75, "I": 65, "T": 60, "R": 50, "S": 45, "C": 40
+    })
+
+    # Si no encuentra la ponderación (por alguna razón), valor por defecto 50
+    if ponderacion_impacto.empty:
+        ponderacion = 50
+    else:
+        ponderacion = ponderacion_impacto.values[0]
+
+    impacto_valor_base = [5, 10, 30, 60, 85][impacto_nivel_sel-1]
+    impacto_valor_ajustado = impacto_valor_base * (ponderacion / 100)
+
+    riesgo_residual = round(amenaza_residual_ajustada * impacto_valor_ajustado, 4)
     clasificacion, color = clasificar_criticidad(riesgo_residual)
-    
-    st.markdown(f"### {t['resultados']}:")
+
+    st.markdown(f"### {t['resultados']}")
     st.write(f"- Amenaza Inherente: {amenaza_inherente}")
     st.write(f"- Amenaza Residual: {amenaza_residual}")
     st.write(f"- Amenaza Residual Ajustada (x Amenaza Deliberada): {amenaza_residual_ajustada}")
-    st.write(f"- Valor Impacto Ajustado: {valor_impacto:.4f}")
+    st.write(f"- Valor Impacto Base: {impacto_valor_base}")
+    st.write(f"- Ponderación Tipo Impacto: {ponderacion}")
+    st.write(f"- Valor Impacto Ajustado: {impacto_valor_ajustado}")
     st.write(f"- Riesgo Residual: {riesgo_residual}")
-    st.markdown(f"- Clasificación: **{clasificacion}**", unsafe_allow_html=True)
-    st.markdown(f"<span style='color:{color}; font-weight:bold;'>■</span>", unsafe_allow_html=True)
-    
+    st.write(f"- Clasificación: **{clasificacion}** (Color: {color})")
+
     if st.button(t["agregar"]) and nombre_riesgo.strip() != "":
         nuevo_riesgo = {
             "Nombre Riesgo": nombre_riesgo.strip(),
             "Descripción": descripcion.strip(),
-            "Exposición": exposicion,
-            "Probabilidad": probabilidad,
-            "Amenaza Deliberada": amenaza_deliberada,
+            "Exposición": exposicion_sel,
+            "Probabilidad": probabilidad_sel,
+            "Amenaza Deliberada": amenaza_deliberada_sel,
             "Efectividad Control (%)": efectividad,
-            "Impacto": impacto_nivel,
-            "Tipo Impacto": tipo_impacto,
+            "Impacto": impacto_nivel_sel,
+            "Tipo Impacto": tipo_impacto_sel,
             "Amenaza Inherente": amenaza_inherente,
             "Amenaza Residual": amenaza_residual,
             "Amenaza Residual Ajustada": amenaza_residual_ajustada,
@@ -211,35 +261,63 @@ with col_centro:
             "Color Criticidad": color
         }
         st.session_state.riesgos = pd.concat([st.session_state.riesgos, pd.DataFrame([nuevo_riesgo])], ignore_index=True)
-        st.success("Riesgo agregado a la matriz acumulativa.")
+        st.success(t["agregar"] + " exitoso!")
 
 with col_der:
     st.header(t["mapa_calor_grafico"])
     if not st.session_state.riesgos.empty:
-        st.session_state.riesgos["Impacto Valor"] = st.session_state.riesgos["Impacto"].map(lambda x: x)
-        st.session_state.riesgos["Probabilidad Ajustada"] = st.session_state.riesgos["Amenaza Residual Ajustada"]
-        st.session_state.riesgos["Probabilidad x Impacto"] = st.session_state.riesgos["Probabilidad Ajustada"] * st.session_state.riesgos["Impacto Valor"]
+        st.session_state.riesgos["Impacto Valor"] = st.session_state.riesgos["Impacto"].map(
+            lambda x: [5, 10, 30, 60, 85][int(x)-1]
+        )
+        st.session_state.riesgos["Probabilidad x Impacto"] = st.session_state.riesgos["Probabilidad"] * st.session_state.riesgos["Impacto Valor"]
 
         matriz_calor = st.session_state.riesgos.pivot_table(
             index="Tipo Impacto",
+            columns="Probabilidad",
             values="Probabilidad x Impacto",
             aggfunc=np.mean
         ).fillna(0).sort_index()
 
-        fig, ax = plt.subplots(figsize=(6,5))
+        colors = ["#008000", "#FFD700", "#FF8C00", "#FF0000"]
+        cmap = LinearSegmentedColormap.from_list("criticidad_cmap", colors, N=256)
+
+        fig, ax = plt.subplots(figsize=(7,5))
         sns.heatmap(
             matriz_calor,
             annot=True,
             fmt=".2f",
             cmap=cmap,
-            cbar_kws={"label": "Probabilidad x Impacto"}
+            cbar_kws={"label": t["factor_probabilidad"]}
         )
         ax.set_xlabel(t["factor_probabilidad"])
         ax.set_ylabel(t["tipo_impacto"])
         st.pyplot(fig)
+
+        # Diagrama de Pareto
+        st.header(t["diagrama_pareto"])
+        df_pareto = st.session_state.riesgos.sort_values(by="Riesgo Residual", ascending=False).copy()
+        df_pareto["Contribucion"] = df_pareto["Riesgo Residual"] / df_pareto["Riesgo Residual"].sum()
+        df_pareto["Acumulado"] = df_pareto["Contribucion"].cumsum()
+
+        fig2, ax2 = plt.subplots(figsize=(8,4))
+        ax2.bar(df_pareto["Nombre Riesgo"], df_pareto["Contribucion"], color="C0")
+        ax2.set_ylabel("Contribución individual", color="C0")
+        ax2.yaxis.set_major_formatter(mtick.PercentFormatter(1.0))
+        ax2.tick_params(axis='y', labelcolor="C0")
+        ax2.set_xticklabels(df_pareto["Nombre Riesgo"], rotation=45, ha="right", fontsize=9)
+
+        ax3 = ax2.twinx()
+        ax3.plot(df_pareto["Nombre Riesgo"], df_pareto["Acumulado"], color="C1", marker="D", ms=5)
+        ax3.set_ylabel("Contribución acumulada", color="C1")
+        ax3.yaxis.set_major_formatter(mtick.PercentFormatter(1.0))
+        ax3.tick_params(axis='y', labelcolor="C1")
+        ax3.grid(False)
+
+        st.pyplot(fig2)
     else:
         st.info(t["sin_graficos"])
 
+# Matriz acumulativa ancho completo abajo
 st.markdown("---")
 st.header(t["matriz_acumulativa"])
 
@@ -269,3 +347,4 @@ if not st.session_state.riesgos.empty:
     )
 else:
     st.info(t["sin_riesgos"])
+

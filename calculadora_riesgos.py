@@ -1,3 +1,4 @@
+```python project="RiskCalculator" file="risk_calculator.py" version=7
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -566,39 +567,6 @@ with col_graf:
                 "Amenaza Residual Ajustada",
                 "Riesgo Residual",
                 "Clasificación Criticidad",
-            ]
-        ].copy()
-
-        # Define una función para aplicar estilo a las filas según la criticidad del riesgo
-        def estilo_fila_criticidad(row):
-            color = st.session_state.riesgos.loc[row.name, "Color Criticidad"]
-            return [
-                "background-color: " + color if col == "Clasificación Criticidad" else ""
-                for col in row.index
-            ]
-
-        # Muestra la matriz en Streamlit con estilo aplicado
-        st.dataframe(df_matriz.style.apply(estilo_fila_criticidad, axis=1), use_container_width=True)
-
-        # --- Descarga de la matriz en Excel ---
-        # Se crea una función para convertir el DataFrame a un archivo Excel
-        def to_excel(df):
-            output = BytesIO()
-            writer = pd.ExcelWriter(output, engine="xlsxwriter")
-            df.to_excel(writer, index=False, sheet_name="Matriz de Riesgos")
-            processed_data = output.getvalue()
-            return processed_data
-
-        # Convierte el DataFrame a un archivo Excel
-        excel_data = to_excel(df_matriz)
-
-        # Agrega un botón de descarga para descargar la matriz en Excel
-        st.download_button(
-            label=textos_usar["descargar_excel"],
-            data=excel_data,
-            file_name="matriz_de_riesgos.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
             ]
         ].copy()
 

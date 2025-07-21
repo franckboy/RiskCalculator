@@ -439,7 +439,6 @@ else:
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         matriz_acum.to_excel(writer, sheet_name='Matriz Acumulativa')
-        writer.save()
     st.download_button(
         label=textos_usar["descargar_excel"],
         data=output.getvalue(),

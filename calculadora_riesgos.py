@@ -1,38 +1,62 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
 import random
-from io import BytesIO
+import numpy as np
 import plotly.graph_objects as go
 
-# Configuración de la página
-st.set_page_config(layout="wide")
+# Título y entradas
+st.header("Monte Carlo")
+n_it = st.number_input("Número de Iteraciones", 100, 10000, 1000, 100)
+p_min = st.number_input("Probabilidad Mínima", 0.0, 1.0, 0.1, 0.01)
+p_max = st.number_input("Probabilidad Máxima", 0.0, 1.0, 0.3, 0.01)
+i_min = st.number_input("Impacto Mínimo", 0, 10000, 1000, 100)
+i_max = st.number_input("Impacto Máximo", 0, 10000, 5000, 100)
 
-# CSS personalizado
-st.markdown("""
-<style>
-/* Botones */
-div.stButton > button {
-    background-color: #28a745;
-    color: white;
-    font-weight: bold;
-    height: 40px; width: 100%; border-radius: 5px; border: none;
-    transition: background-color 0.3s ease;
-}
-div.stButton > button:hover {
-    background-color: #218838; cursor: pointer;
-}
-/* Selectores */
-div.stSelectbox > div[data-baseweb="select"] {
-    width: 100% !important; font-size: 16px !important;
-}
-textarea { font-size: 16px !important; }
-/* Responsive tabla */
-@media (max-width: 768px) {
-    .dataframe { overflow-x: auto; }
-}
-</style>
-""", unsafe_allow_html=True)
+# Función Monte Carlo
+def monte(pmin, pmax, imin, imax, n):
+    return [random.uniform(pmin, pmax) * random.uniform(imin, imax) for _ in range(n)]
+
+# Resultado
+res = monte(p_min, p_max, i_min, i_max, n_it)
+
+# Mostrar resultados
+st.write(f"Riesgo promedio: {np.mean(res):.2f}")
+st.write(f"Riesgo máximo: {np.max(res):.2f}")
+st.write(f"Riesgo mínimo: {np.min(res):.2f}")
+st.write(f"Percentil 95: {np.percentile(res, 95):.2f}")
+
+# Espacio antes del gráfico
+st.markdown("<br><br>", unsafe_allow_html=True)
+
+# Contenedor para centrar el gráfico
+st.markdown(
+    """
+    <div style='display:flex; justify-content:center;'>
+        <div style='width:80%;'>
+    """,
+    unsafe_allow_html=True,
+)
+
+# Crear gráfico con colores azul semi-transparente y borde azul sólido
+figh = go.Figure(
+    data=[go.Histogram(
+        x=res,
+        marker_color='rgba(31, 119, 180, 0.7)',
+        marker_line_color='rgba(31, 119, 180, 1)',
+        marker_line_width=1
+    )]
+)
+figh.update_layout(
+    title="Distribución Monte Carlo",
+    xaxis_title="Riesgo",
+    yaxis_title="Frecuencia",
+    plot_bgcolor='white',
+    paper_bgcolor='white'
+)
+
+# Mostrar gráfico
+st.plotly_chart(figh, use_container_width=True)
+
+st.markdown("</div></div>", unsafe_allow_html=True)
 
 # Tablas base
 tabla_tipo_impacto = pd.DataFrame({

@@ -283,23 +283,61 @@ with col_graf:
         figs.update_layout(xaxis_title="Tipo Impacto", yaxis_title="Riesgo Residual", margin=dict(l=40,r=40,t=40,b=40), barmode="stack")
         st.plotly_chart(figs, use_container_width=True)
 
-    # Monte Carlo
-    st.header(t["montecarlo_titulo"])
-    n_it = st.number_input(t["num_iteraciones"],100,10000,1000,100)
-    p_min = st.number_input(t["probabilidad_min"],0.0,1.0,0.1,0.01)
-    p_max = st.number_input(t["probabilidad_max"],0.0,1.0,0.3,0.01)
-    i_min = st.number_input(t["impacto_min"],0,10000,1000,100)
-    i_max = st.number_input(t["impacto_max"],0,10000,5000,100)
+    # --- Simulación de Monte Carlo ---
+# Se crea una sección para la simulación de Monte Carlo al final de la página
+st.markdown("---")  # Línea separadora
+st.header(textos_usar["montecarlo_titulo"])
 
-    def monte(pmin, pmax, imin, imax, n):
-        return [random.uniform(pmin,pmax)*random.uniform(imin,imax) for _ in range(n)]
+# Usamos columnas para centrar el contenido
+col1, col2, col3 = st.columns([1, 3, 1])  # Columnas con proporciones 1-3-1 para centrado
 
-    res = monte(p_min,p_max,i_min,i_max,n_it)
-    st.write(f"Riesgo promedio: {np.mean(res):.2f}")
-    st.write(f"Riesgo máximo: {np.max(res):.2f}")
-    st.write(f"Riesgo mínimo: {np.min(res):.2f}")
-    st.write(f"Percentil 95: {np.percentile(res,95):.2f}")
+with col2:  # Contenido centrado en la columna del medio
+    # Define los parámetros de la simulación
+    num_iteraciones = st.number_input(textos_usar["num_iteraciones"], min_value=100, max_value=10000, value=1000, step=100)
+    probabilidad_min = st.number_input(textos_usar["probabilidad_min"], min_value=0.0, max_value=1.0, value=0.1, step=0.01)
+    probabilidad_max = st.number_input(textos_usar["probabilidad_max"], min_value=0.0, max_value=1.0, value=0.3, step=0.01)
+    impacto_min = st.number_input(textos_usar["impacto_min"], min_value=0, max_value=10000, value=1000, step=100)
+    impacto_max = st.number_input(textos_usar["impacto_max"], min_value=0, max_value=10000, value=5000, step=100)
 
-    figh = go.Figure(data=[go.Histogram(x=res)])
-    figh.update_layout(title="Distribución Monte Carlo", xaxis_title="Riesgo", yaxis_title="Frecuencia")
-    st.plotly_chart(figh, use_container_width=True)
+    # Define la función para ejecutar la simulación de Monte Carlo
+    def calcular_riesgo_montecarlo(probabilidad_min, probabilidad_max, impacto_min, impacto_max, num_iteraciones):
+        resultados = []
+        for _ in range(num_iteraciones):
+            # Simular la probabilidad (distribución uniforme)
+            probabilidad = random.uniform(probabilidad_min, probabilidad_max)
+            # Simular el impacto (distribución uniforme)
+            impacto = random.uniform(impacto_min, impacto_max)
+            # Calcular el riesgo
+            riesgo = probabilidad * impacto
+            resultados.append(riesgo)
+        return resultados
+
+    # Ejecuta la simulación de Monte Carlo
+    resultados = calcular_riesgo_montecarlo(probabilidad_min, probabilidad_max, impacto_min, impacto_max, num_iteraciones)
+
+    # Analiza los resultados
+    riesgo_promedio = np.mean(resultados)
+    riesgo_maximo = np.max(resultados)
+    riesgo_minimo = np.min(resultados)
+    percentil_95 = np.percentile(resultados, 95)
+
+    # Muestra los resultados en un contenedor
+    with st.container():
+        st.write(f"**Riesgo promedio:** {riesgo_promedio:.2f}")
+        st.write(f"**Riesgo máximo:** {riesgo_maximo:.2f}")
+        st.write(f"**Riesgo mínimo:** {riesgo_minimo:.2f}")
+        st.write(f"**Percentil 95:** {percentil_95:.2f}")
+
+    # Crea un histograma de los resultados con tamaño ajustado
+    fig_histograma = go.Figure(data=[go.Histogram(x=resultados)])
+    fig_histograma.update_layout(
+        title="Distribución de Resultados de la Simulación de Monte Carlo",
+        xaxis_title="Riesgo",
+        yaxis_title="Frecuencia",
+        width=600,  # Ancho fijo para el gráfico
+        height=400,  # Alto fijo para el gráfico
+        margin=dict(l=50, r=50, t=50, b=50)  # Márgenes ajustados
+    )
+    
+    # Mostrar el gráfico centrado
+    st.plotly_chart(fig_histograma, use_container_width=False)

@@ -644,7 +644,6 @@ with col_graf:
     else:
         fig_stacked = crear_grafico_barras_apiladas(st.session_state.riesgos)
         st.plotly_chart(fig_stacked, use_container_width=True)
-        ```python project="RiskCalculator" file="risk_calculator.py" version=20
 import streamlit as st
 import pandas as pd
 import numpy as np

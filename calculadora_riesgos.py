@@ -273,14 +273,10 @@ with col_form:
     )
     efectividad = st.slider(textos_usar["efectividad_control"], 0, 100, 50)
 
-    impacto = st.selectbox(
-        textos_usar["impacto"],
-        options=tabla_impacto_mostrar["Nivel"],
-        format_func=lambda x: f"{x} - {tabla_impacto_mostrar.loc[tabla_impacto_mostrar['Nivel']==x, 'Clasificacion'].values[0]} - {tabla_impacto_mostrar.loc[tabla_impacto_mostrar['Nivel']==x, 'Definición'].values[0]}"
-    )
+    impacto = st.number_input(textos_usar["impacto"], min_value=0, max_value=100, value=30, step=1)
 
     efectividad_norm = efectividad / 100
-    valor_impacto = tabla_impacto_mostrar.loc[tabla_impacto_mostrar["Nivel"] == impacto, "Valor"].values[0]
+    valor_impacto = impacto  # Ahora impacto es numérico directamente
 
     amenaza_inherente, amenaza_residual, amenaza_residual_ajustada, riesgo_residual = calcular_criticidad(
         probabilidad, exposicion, amenaza_deliberada, efectividad_norm, valor_impacto, ponderacion_impacto
@@ -318,7 +314,7 @@ with col_form:
                 "Clasificación Criticidad": clasificacion,
                 "Color Criticidad": color
             }
-            st.session_state.riesgos = pd.concat([st.session_state.riesgos, pd.DataFrame([nuevo_riesgo])], ignore_index=True)
+            st.session_state.riesgos = st.session_state.riesgos.append(nuevo_riesgo, ignore_index=True)
             st.success(textos_usar["exito_agregar"])
 
 with col_graf:
@@ -327,94 +323,124 @@ with col_graf:
     if st.session_state.riesgos.empty:
         st.info(textos_usar["info_agrega_riesgos"])
     else:
-        # Definir orden de probabilidad e impacto para filas y columnas
+        # --- Mapa de calor clásico con probabilidad vs impacto (rangos) ---
+        # Definir bins para impacto (0-100)
+        bins_impacto = [0, 20, 40, 60, 80, 100]
+        labels_impacto = ["0-20", "21-40", "41-60", "61-80", "81-100"]
+
+        riesgos_df = st.session_state.riesgos.copy()
+        riesgos_df["Impacto Rango"] = pd.cut(riesgos_df["Impacto"].astype(float), bins=bins_impacto, labels=labels_impacto, include_lowest=True)
+
         prob_order = sorted(matriz_probabilidad["Factor"].tolist())
-        impact_order = sorted(matriz_impacto["Nivel"].tolist())
 
-        df_heatmap = st.session_state.riesgos.groupby(["Probabilidad", "Impacto"]).agg({"Riesgo Residual": "sum"}).reset_index()
-        heatmap_pivot = df_heatmap.pivot(index="Probabilidad", columns="Impacto", values="Riesgo Residual").reindex(index=prob_order[::-1], columns=impact_order)
-        heatmap_pivot = heatmap_pivot.fillna(0)
+        df_heatmap = riesgos_df.groupby(["Probabilidad", "Impacto Rango"]).agg({"Riesgo Residual": "sum"}).reset_index()
+        heatmap_pivot = df_heatmap.pivot(index="Impacto Rango", columns="Probabilidad", values="Riesgo Residual").reindex(index=labels_impacto, columns=prob_order).fillna(0)
 
-        x_labels = [f"{nivel} - {tabla_impacto_mostrar.loc[tabla_impacto_mostrar['Nivel']==nivel, 'Clasificacion'].values[0]}" for nivel in heatmap_pivot.columns]
-        y_labels = [f"{prob:.2f} - {matriz_probabilidad.loc[matriz_probabilidad['Factor']==prob, 'Nivel'].values[0]}" for prob in heatmap_pivot.index]
+        x_labels = [
+            f"{nivel} - {matriz_probabilidad.loc[matriz_probabilidad['Factor'] == nivel, 'Clasificacion'].values[0]}"
+            for nivel in prob_order
+        ]
+        y_labels = labels_impacto
 
         fig_heatmap = go.Figure(data=go.Heatmap(
             z=heatmap_pivot.values,
             x=x_labels,
             y=y_labels,
-            colorscale='Viridis',
-            colorbar=dict(title="Riesgo Residual")
+            colorscale='RdYlGn_r',
+            colorbar=dict(title=textos_usar["riesgo_residual"]),
+            hoverongaps=False,
         ))
-        fig_heatmap.update_layout(margin=dict(l=40, r=20, t=30, b=40), height=400)
 
-        st.plotly_chart(fig_heatmap, use_container_width=True)
+        fig_heatmap.update_layout(
+            title=textos_usar["mapa_calor_titulo"],
+            xaxis_title="Probabilidad",
+            yaxis_title="Impacto",
+            xaxis=dict(
+                ticks="",
+                side="bottom",
+                fixedrange=True,
+                showgrid=False,
+                zeroline=False,
+            ),
+            yaxis=dict(
+                ticks="",
+                autorange='reversed',
+                fixedrange=True,
+                showgrid=False,
+                zeroline=False,
+            ),
+            width=700,
+            height=600,
+            margin=dict(l=80, r=80, t=100, b=100),
+            dragmode=False,
+        )
 
-        # Gráfico Pareto de Riesgos Residuales
+        st.plotly_chart(fig_heatmap, use_container_width=False)
+
+        # --- Gráfico Pareto (torres con tendencia) ---
         st.header(textos_usar["pareto_titulo"])
-        df_pareto = st.session_state.riesgos.groupby("Nombre Riesgo").agg({"Riesgo Residual": "sum"}).reset_index()
-        df_pareto = df_pareto.sort_values(by="Riesgo Residual", ascending=False)
-        df_pareto["Porcentaje"] = df_pareto["Riesgo Residual"] / df_pareto["Riesgo Residual"].sum() * 100
-        df_pareto["Acumulado"] = df_pareto["Porcentaje"].cumsum()
+        riesgos_agrupados = st.session_state.riesgos.groupby("Nombre Riesgo").agg({"Riesgo Residual": "sum"}).sort_values("Riesgo Residual", ascending=False).reset_index()
 
         fig_pareto = go.Figure()
         fig_pareto.add_trace(go.Bar(
-            x=df_pareto["Nombre Riesgo"],
-            y=df_pareto["Riesgo Residual"],
-            name='Riesgo Residual',
-            marker_color='steelblue'
+            x=riesgos_agrupados["Nombre Riesgo"],
+            y=riesgos_agrupados["Riesgo Residual"],
+            name="Riesgo Residual",
+            marker_color='indianred'
         ))
+
         fig_pareto.add_trace(go.Scatter(
-            x=df_pareto["Nombre Riesgo"],
-            y=df_pareto["Acumulado"],
-            name='Porcentaje acumulado',
-            yaxis='y2',
-            mode='lines+markers',
-            marker_color='crimson'
+            x=riesgos_agrupados["Nombre Riesgo"],
+            y=riesgos_agrupados["Riesgo Residual"].cumsum() / riesgos_agrupados["Riesgo Residual"].sum() * 100,
+            name="Tendencia acumulada (%)",
+            yaxis="y2",
+            mode="lines+markers",
+            marker_color='blue'
         ))
 
         fig_pareto.update_layout(
-            yaxis=dict(title='Riesgo Residual'),
-            yaxis2=dict(title='Porcentaje acumulado', overlaying='y', side='right', range=[0, 110]),
-            margin=dict(l=40, r=40, t=30, b=80),
+            yaxis=dict(title="Riesgo Residual"),
+            yaxis2=dict(title="Porcentaje acumulado", overlaying="y", side="right", range=[0, 100]),
+            xaxis_tickangle=-45,
+            width=700,
             height=400,
-            xaxis_tickangle=-45
+            margin=dict(l=60, r=60, t=40, b=120),
+            legend=dict(x=0.7, y=1.1, orientation="h")
         )
 
-        st.plotly_chart(fig_pareto, use_container_width=True)
+        st.plotly_chart(fig_pareto, use_container_width=False)
 
-        # Matriz acumulativa con riesgo residual normalizado
-        st.header(textos_usar["matriz_acumulativa_titulo"])
+# --- Matriz acumulativa a lo ancho al final ---
+st.header(textos_usar["matriz_acumulativa_titulo"])
 
-        # Calculamos la matriz sumando ponderaciones (normalizando a 294)
-        total_ponderacion = tabla_tipo_impacto["Ponderación"].sum()
-        matriz_acum = st.session_state.riesgos.groupby(["Tipo Impacto"]).agg({"Riesgo Residual": "sum"}).reset_index()
-        matriz_acum["Indice Criticidad"] = matriz_acum["Riesgo Residual"] / total_ponderacion
+if st.session_state.riesgos.empty:
+    st.info(textos_usar["info_agrega_riesgos_matriz"])
+else:
+    # Crear tabla pivot de matriz acumulativa (tipo impacto vs nombre riesgo)
+    matriz_acum = st.session_state.riesgos.pivot_table(
+        index="Tipo Impacto",
+        columns="Nombre Riesgo",
+        values="Riesgo Residual",
+        aggfunc="sum",
+        fill_value=0
+    )
 
-        matriz_acum = matriz_acum.merge(tabla_tipo_impacto[["Código", "Tipo de Impacto"]], left_on="Tipo Impacto", right_on="Código")
-        matriz_acum = matriz_acum[["Tipo Impacto", "Tipo de Impacto", "Riesgo Residual", "Indice Criticidad"]]
+    # Mostrar tabla con colores por criticidad (en fondo)
+    def color_criticidad(val):
+        _, color = clasificar_criticidad_usar(val)
+        return f'background-color: {color}; color: white;' if val > 0 else ''
 
-        # Mostrar tabla con colores en índice criticidad
-        def color_criticidad(valor):
-            clasif, color = clasificar_criticidad_usar(valor)
-            return f'background-color: {color}; color: white; font-weight: bold;'
+    st.dataframe(matriz_acum.style.applymap(color_criticidad), height=400)
 
-        st.dataframe(
-            matriz_acum.style.format({"Riesgo Residual": "{:.4f}", "Indice Criticidad": "{:.4f}"})
-            .applymap(color_criticidad, subset=["Indice Criticidad"])
-            .set_properties(**{'text-align': 'left'})
-        )
-
-        # Opción para descargar Excel
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            matriz_acum.to_excel(writer, index=False, sheet_name='Matriz Acumulativa')
-        output.seek(0)
-
-        st.download_button(
-            label=textos_usar["descargar_excel"],
-            data=output,
-            file_name="matriz_acumulativa.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
+    # Botón para descargar Excel
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        matriz_acum.to_excel(writer, sheet_name='Matriz Acumulativa')
+        writer.save()
+    st.download_button(
+        label=textos_usar["descargar_excel"],
+        data=output.getvalue(),
+        file_name="matriz_acumulativa.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 

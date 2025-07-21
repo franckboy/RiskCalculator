@@ -55,33 +55,6 @@ tabla_tipo_impacto = pd.DataFrame({
     ]
 })
 
-matriz_probabilidad = pd.DataFrame({
-    "Nivel": [1, 2, 3, 4, 5],
-    "Clasificacion": ["Rara", "Poco Probable", "Posible", "Probable", "Casi seguro"],
-    "Rango": ["≤ 0.05", "0.06 – 0.15", "0.16 – 0.40", "0.41 – 0.70", "> 0.70"],
-    "Factor": [0.04, 0.10, 0.25, 0.55, 0.85],
-    "Definición": [
-        "Evento muy poco probable",
-        "Posible en circunstancias poco comunes",
-        "Puede ocurrir ocasionalmente",
-        "Ocurre con frecuencia",
-        "Ocurre casi siempre o siempre"
-    ]
-})
-
-matriz_impacto = pd.DataFrame({
-    "Nivel": [1, 2, 3, 4, 5],
-    "Valor": [5, 10, 30, 60, 85],
-    "Clasificacion": ["Insignificante", "Leve", "Moderado", "Grave", "Crítico"],
-    "Definición": [
-        "No afecta significativamente",
-        "Afectación menor",
-        "Afectación parcial y temporal",
-        "Afectación significativa",
-        "Impacto serio o pérdida total"
-    ]
-})
-
 factor_exposicion = pd.DataFrame({
     "Factor": [0.05, 0.15, 0.30, 0.55, 0.85],
     "Nivel": ["Muy Baja", "Baja", "Moderada", "Alta", "Muy Alta"],
@@ -103,21 +76,6 @@ factor_probabilidad = pd.DataFrame({
         "Podría ocurrir ocasionalmente",
         "Probable en ocasiones",
         "Ocurre con frecuencia / inminente"
-    ]
-})
-
-efectividad_controles = pd.DataFrame({
-    "Rango": ["0%", "1 - 20%", "21-40%", "41-60%", "61-81%", "81-95%", "96-100%"],
-    "Factor": [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0],
-    "Mitigacion": ["Inefectiva", "Limitada", "Baja", "Intermedia", "Alta", "Muy alta", "Total"],
-    "Descripcion": [
-        "No reduce el riesgo",
-        "Reduce solo en condiciones ideales",
-        "Mitiga riesgos menores.",
-        "Control estándar con limitaciones.",
-        "Reduce significativamente el riesgo",
-        "Control robusto y bien implementado.",
-        "Elimina casi todo el riesgo"
     ]
 })
 
@@ -183,28 +141,7 @@ textos = {
     }
 }
 
-def clasificar_criticidad(valor, idioma="es"):
-    for limite_inf, limite_sup, clasif, color in criticidad_límites:
-        if limite_inf < valor <= limite_sup:
-            if idioma == "es":
-                return clasif, color
-            else:
-                traduccion = {
-                    "ACEPTABLE": "ACCEPTABLE",
-                    "TOLERABLE": "TOLERABLE",
-                    "INACEPTABLE": "UNACCEPTABLE",
-                    "INADMISIBLE": "INTOLERABLE"
-                }
-                return traduccion.get(clasif, clasif), color
-    return "NO CLASIFICADO", "#000000"
-
-def calcular_criticidad(probabilidad, exposicion, amenaza_deliberada, efectividad, valor_impacto, ponderacion_impacto):
-    amenaza_inherente = probabilidad * exposicion
-    amenaza_residual = amenaza_inherente * (1 - efectividad)
-    amenaza_residual_ajustada = amenaza_residual * amenaza_deliberada
-    riesgo_residual = amenaza_residual_ajustada * valor_impacto * (ponderacion_impacto / 100)
-    return amenaza_inherente, amenaza_residual, amenaza_residual_ajustada, riesgo_residual
-
+# Inicializa dataframe en session_state
 if "riesgos" not in st.session_state:
     st.session_state.riesgos = pd.DataFrame(columns=[
         "Nombre Riesgo", "Descripción", "Tipo Impacto", "Exposición", "Probabilidad", "Amenaza Deliberada",
@@ -222,15 +159,18 @@ if idioma == "es":
     tabla_tipo_impacto_mostrar = tabla_tipo_impacto
     tabla_exposicion_mostrar = factor_exposicion
     tabla_probabilidad_mostrar = factor_probabilidad
-    tabla_impacto_mostrar = matriz_impacto
-    clasificar_criticidad_usar = lambda v: clasificar_criticidad(v, "es")
+    clasificar_criticidad_usar = lambda v: next((clas for inf, sup, clas, _ in criticidad_límites if inf < v <= sup), "NO CLASIFICADO")
     textos_usar = textos["es"]
 else:
     tabla_tipo_impacto_mostrar = tabla_tipo_impacto
     tabla_exposicion_mostrar = factor_exposicion
     tabla_probabilidad_mostrar = factor_probabilidad
-    tabla_impacto_mostrar = matriz_impacto
-    clasificar_criticidad_usar = lambda v: clasificar_criticidad(v, "en")
+    clasificar_criticidad_usar = lambda v: next(({
+        "ACEPTABLE":"ACCEPTABLE",
+        "TOLERABLE":"TOLERABLE",
+        "INACEPTABLE":"UNACCEPTABLE",
+        "INADMISIBLE":"INTOLERABLE"
+    }.get(clas, clas) for inf, sup, clas, _ in criticidad_límites if inf < v <= sup), "NO CLASIFICADO")
     textos_usar = textos["en"]
 
 col_form, col_graf = st.columns([3, 2])
@@ -253,12 +193,12 @@ with col_form:
     exposicion = st.selectbox(
         textos_usar["factor_exposicion"],
         options=tabla_exposicion_mostrar["Factor"],
-        format_func=lambda x: f"{x:.2f} - {tabla_exposicion_mostrar.loc[tabla_exposicion_mostrar['Factor']==x, 'Nivel'].values[0]} - {tabla_exposicion_mostrar.loc[tabla_exposicion_mostrar['Factor']==x, 'Definición'].values[0]}"
+        format_func=lambda x: f"{x:.2f} - {tabla_exposicion_mostrar.loc[tabla_exposicion_mostrar['Factor']==x, 'Nivel'].values[0]}"
     )
     probabilidad = st.selectbox(
         textos_usar["factor_probabilidad"],
         options=tabla_probabilidad_mostrar["Factor"],
-        format_func=lambda x: f"{x:.2f} - {tabla_probabilidad_mostrar.loc[tabla_probabilidad_mostrar['Factor']==x, 'Nivel'].values[0]} - {tabla_probabilidad_mostrar.loc[tabla_probabilidad_mostrar['Factor']==x, 'Descripcion'].values[0]}"
+        format_func=lambda x: f"{x:.2f} - {tabla_probabilidad_mostrar.loc[tabla_probabilidad_mostrar['Factor']==x, 'Nivel'].values[0]}"
     )
     amenaza_deliberada = st.selectbox(
         textos_usar["amenaza_deliberada"],
@@ -270,46 +210,53 @@ with col_form:
 
     impacto = st.number_input(textos_usar["impacto"], min_value=0, max_value=100, value=30, step=1)
 
-    efectividad_norm = efectividad / 100
-    valor_impacto = impacto
-
-    amenaza_inherente, amenaza_residual, amenaza_residual_ajustada, riesgo_residual = calcular_criticidad(
-        probabilidad, exposicion, amenaza_deliberada, efectividad_norm, valor_impacto, ponderacion_impacto
-    )
-
-    clasificacion, color = clasificar_criticidad_usar(riesgo_residual)
-
-    st.markdown(f"### {textos_usar['resultados']}:")
-    st.write(f"- {textos_usar['amenaza_inherente']}: {amenaza_inherente:.4f}")
-    st.write(f"- {textos_usar['amenaza_residual']}: {amenaza_residual:.4f}")
-    st.write(f"- {textos_usar['amenaza_residual_ajustada']}: {amenaza_residual_ajustada:.4f}")
-    st.write(f"- {textos_usar['riesgo_residual']}: {riesgo_residual:.4f}")
-    st.write(f"- {textos_usar['clasificacion']}: **{clasificacion}**")
-
     btn_agregar = st.button(textos_usar["agregar_riesgo"])
 
-    if btn_agregar:
-        if nombre_riesgo.strip() == "":
-            st.error("Debe ingresar un nombre para el riesgo.")
-        else:
-            nuevo = {
-                "Nombre Riesgo": nombre_riesgo,
-                "Descripción": descripcion,
-                "Tipo Impacto": codigo_impacto,
-                "Exposición": exposicion,
-                "Probabilidad": probabilidad,
-                "Amenaza Deliberada": amenaza_deliberada,
-                "Efectividad Control (%)": efectividad,
-                "Impacto": impacto,
-                "Amenaza Inherente": amenaza_inherente,
-                "Amenaza Residual": amenaza_residual,
-                "Amenaza Residual Ajustada": amenaza_residual_ajustada,
-                "Riesgo Residual": riesgo_residual,
-                "Clasificación Criticidad": clasificacion,
-                "Color Criticidad": color
-            }
-            st.session_state.riesgos = pd.concat([st.session_state.riesgos, pd.DataFrame([nuevo])], ignore_index=True)
-            st.success(textos_usar["exito_agregar"])
+# -----------------------------------------
+# CÁLCULOS MATEMÁTICOS Y LÓGICOS AL FINAL
+# -----------------------------------------
+
+def calcular_criticidad(probabilidad, exposicion, amenaza_deliberada, efectividad, valor_impacto, ponderacion_impacto):
+    amenaza_inherente = probabilidad * exposicion
+    amenaza_residual = amenaza_inherente * (1 - efectividad)
+    amenaza_residual_ajustada = amenaza_residual * amenaza_deliberada
+    riesgo_residual = amenaza_residual_ajustada * valor_impacto * (ponderacion_impacto / 100)
+    return amenaza_inherente, amenaza_residual, amenaza_residual_ajustada, riesgo_residual
+
+def clasificar_criticidad(valor):
+    for limite_inf, limite_sup, clasif, color in criticidad_límites:
+        if limite_inf < valor <= limite_sup:
+            return clasif, color
+    return "NO CLASIFICADO", "#000000"
+
+if btn_agregar:
+    if nombre_riesgo.strip() == "":
+        st.error("Debe ingresar un nombre para el riesgo.")
+    else:
+        efectividad_norm = efectividad / 100
+        amenaza_inherente, amenaza_residual, amenaza_residual_ajustada, riesgo_residual = calcular_criticidad(
+            probabilidad, exposicion, amenaza_deliberada, efectividad_norm, impacto, ponderacion_impacto
+        )
+        clasificacion, color = clasificar_criticidad(riesgo_residual)
+
+        nuevo = {
+            "Nombre Riesgo": nombre_riesgo,
+            "Descripción": descripcion,
+            "Tipo Impacto": codigo_impacto,
+            "Exposición": exposicion,
+            "Probabilidad": probabilidad,
+            "Amenaza Deliberada": amenaza_deliberada,
+            "Efectividad Control (%)": efectividad,
+            "Impacto": impacto,
+            "Amenaza Inherente": amenaza_inherente,
+            "Amenaza Residual": amenaza_residual,
+            "Amenaza Residual Ajustada": amenaza_residual_ajustada,
+            "Riesgo Residual": riesgo_residual,
+            "Clasificación Criticidad": clasificacion,
+            "Color Criticidad": color
+        }
+        st.session_state.riesgos = pd.concat([st.session_state.riesgos, pd.DataFrame([nuevo])], ignore_index=True)
+        st.success(textos_usar["exito_agregar"])
 
 with col_graf:
     st.header(textos_usar["mapa_calor_titulo"])
@@ -317,35 +264,30 @@ with col_graf:
     if st.session_state.riesgos.empty:
         st.info(textos_usar["info_agrega_riesgos"])
     else:
+        # Mapa de calor: Eje X = Impacto, Eje Y = Riesgo Residual
+        df_heatmap = st.session_state.riesgos.copy()
+
+        # Crear bins para Impacto (que es el valor único ingresado en cada riesgo)
         bins_impacto = [0, 20, 40, 60, 80, 100]
         labels_impacto = ["0-20", "21-40", "41-60", "61-80", "81-100"]
+        df_heatmap["Impacto Rango"] = pd.cut(df_heatmap["Impacto"].astype(float), bins=bins_impacto, labels=labels_impacto, include_lowest=True)
 
-        riesgos_df = st.session_state.riesgos.copy()
-        riesgos_df["Impacto Rango"] = pd.cut(riesgos_df["Impacto"].astype(float), bins=bins_impacto, labels=labels_impacto, include_lowest=True)
+        # Agregamos riesgo residual promedio por rango impacto para Y, y para X usamos rango impacto categórico
+        pivot_heatmap = df_heatmap.groupby("Impacto Rango").agg({
+            "Riesgo Residual": "mean"
+        }).reindex(labels_impacto).fillna(0)
 
-        prob_order = sorted(matriz_probabilidad["Factor"].tolist())
-
-        df_heatmap = riesgos_df.groupby(["Probabilidad", "Impacto Rango"]).agg({"Riesgo Residual": "sum"}).reset_index()
-        heatmap_pivot = df_heatmap.pivot(index="Impacto Rango", columns="Probabilidad", values="Riesgo Residual").reindex(index=labels_impacto, columns=prob_order).fillna(0)
-
-        x_labels = [
-            f"{nivel} - {matriz_probabilidad.loc[matriz_probabilidad['Factor'] == nivel, 'Nivel'].values[0]}"
-            for nivel in heatmap_pivot.columns
-        ]
-        y_labels = heatmap_pivot.index.tolist()
-
-        fig_heatmap = go.Figure(data=go.Heatmap(
-            z=heatmap_pivot.values,
-            x=x_labels,
-            y=y_labels,
-            colorscale='YlOrRd',
-            colorbar=dict(title='Riesgo Residual')
+        # Construir figura Heatmap con riesgo residual vs impacto (rango)
+        fig_heatmap = go.Figure(data=go.Bar(
+            x=pivot_heatmap.index.astype(str),
+            y=pivot_heatmap["Riesgo Residual"],
+            marker_color='crimson'
         ))
         fig_heatmap.update_layout(
-            yaxis_autorange='reversed',
-            xaxis_title='Probabilidad Residual',
-            yaxis_title='Impacto',
-            margin=dict(l=50, r=50, t=50, b=50)
+            title="Riesgo Residual promedio por rango de Impacto",
+            xaxis_title="Impacto",
+            yaxis_title="Riesgo Residual",
+            margin=dict(l=40, r=40, t=40, b=40)
         )
 
         st.plotly_chart(fig_heatmap, use_container_width=True)
@@ -378,23 +320,9 @@ else:
         "Riesgo Residual", "Clasificación Criticidad"
     ]].copy()
 
-    def color_criticidad(val):
-        if val in criticidad_límites:
-            return ''
-        for _, _, clasif, color in criticidad_límites:
-            if val == clasif:
-                return f'background-color: {color}'
-        return ''
-
-    def estilo_fila(row):
-        color = row["Color Criticidad"]
-        return ['background-color: ' + color if i == "Clasificación Criticidad" else '' for i in row.index]
-
     def estilo_fila_criticidad(row):
-        color = row["Color Criticidad"]
+        color = st.session_state.riesgos.loc[row.name, "Color Criticidad"]
         return ['background-color: ' + color if col == "Clasificación Criticidad" else '' for col in row.index]
-
-    df_matriz["Color Criticidad"] = st.session_state.riesgos["Color Criticidad"]
 
     st.dataframe(df_matriz.style.apply(estilo_fila_criticidad, axis=1), use_container_width=True)
 
@@ -414,6 +342,4 @@ else:
         file_name='matriz_de_riesgos.xlsx',
         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-
-
 

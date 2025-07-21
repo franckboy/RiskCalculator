@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from io import BytesIO
+import random
 
 # Configuración de la página de Streamlit para usar un diseño amplio
 st.set_page_config(layout="wide")
@@ -143,6 +144,12 @@ textos = {
         "info_agrega_riesgos_matriz": "Agrega riesgos para mostrar la matriz acumulativa.",
         "scatter_titulo": "Gráfico de Dispersión - Probabilidad vs Impacto",
         "stacked_titulo": "Gráfico de Barras Apiladas - Riesgo por Tipo de Impacto",
+        "montecarlo_titulo": "Simulación de Monte Carlo",
+        "num_iteraciones": "Número de iteraciones",
+        "probabilidad_min": "Probabilidad Mínima",
+        "probabilidad_max": "Probabilidad Máxima",
+        "impacto_min": "Impacto Mínimo",
+        "impacto_max": "Impacto Máximo",
     },
     "en": {
         "nombre_riesgo": "Risk Name",
@@ -171,6 +178,12 @@ textos = {
         "info_agrega_riesgos_matriz": "Add risks to show the accumulated matrix.",
         "scatter_titulo": "Scatter Plot - Probability vs Impact",
         "stacked_titulo": "Stacked Bar Chart - Risk by Impact Type",
+        "montecarlo_titulo": "Monte Carlo Simulation",
+        "num_iteraciones": "Number of Iterations",
+        "probabilidad_min": "Minimum Probability",
+        "probabilidad_max": "Maximum Probability",
+        "impacto_min": "Minimum Impact",
+        "impacto_max": "Maximum Impact",
     },
 }
 
@@ -598,9 +611,59 @@ with col_graf:
 
         # Convierte el DataFrame a un archivo Excel
         excel_data = to_excel(df_matriz)
+
         # Agrega un botón de descarga para descargar la matriz en Excel
         st.download_button(
             label=textos_usar["descargar_excel"],
             data=excel_data,
             file_name="matriz_de_riesgos.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    # --- Simulación de Monte Carlo ---
+    # Se crea una sección para la simulación de Monte Carlo
+    st.header(textos_usar["montecarlo_titulo"])
+
+    # Define los parámetros de la simulación
+    num_iteraciones = st.number_input(textos_usar["num_iteraciones"], min_value=100, max_value=10000, value=1000, step=100)
+    probabilidad_min = st.number_input(textos_usar["probabilidad_min"], min_value=0.0, max_value=1.0, value=0.1, step=0.01)
+    probabilidad_max = st.number_input(textos_usar["probabilidad_max"], min_value=0.0, max_value=1.0, value=0.3, step=0.01)
+    impacto_min = st.number_input(textos_usar["impacto_min"], min_value=0, max_value=10000, value=1000, step=100)
+    impacto_max = st.number_input(textos_usar["impacto_max"], min_value=0, max_value=10000, value=5000, step=100)
+
+    # Define la función para ejecutar la simulación de Monte Carlo
+    def calcular_riesgo_montecarlo(probabilidad_min, probabilidad_max, impacto_min, impacto_max, num_iteraciones):
+        resultados = []
+        for _ in range(num_iteraciones):
+            # Simular la probabilidad (distribución uniforme)
+            probabilidad = random.uniform(probabilidad_min, probabilidad_max)
+            # Simular el impacto (distribución uniforme)
+            impacto = random.uniform(impacto_min, impacto_max)
+            # Calcular el riesgo
+            riesgo = probabilidad * impacto
+            resultados.append(riesgo)
+        return resultados
+
+    # Ejecuta la simulación de Monte Carlo
+    resultados = calcular_riesgo_montecarlo(probabilidad_min, probabilidad_max, impacto_min, impacto_max, num_iteraciones)
+
+    # Analiza los resultados
+    riesgo_promedio = np.mean(resultados)
+    riesgo_maximo = np.max(resultados)
+    riesgo_minimo = np.min(resultados)
+    percentil_95 = np.percentile(resultados, 95)
+
+    # Muestra los resultados
+    st.write(f"Riesgo promedio: {riesgo_promedio:.2f}")
+    st.write(f"Riesgo máximo: {riesgo_maximo:.2f}")
+    st.write(f"Riesgo mínimo: {riesgo_minimo:.2f}")
+    st.write(f"Percentil 95: {percentil_95:.2f}")
+
+    # Crea un histograma de los resultados
+    fig_histograma = go.Figure(data=[go.Histogram(x=resultados)])
+    fig_histograma.update_layout(
+        title="Distribución de Resultados de la Simulación de Monte Carlo",
+        xaxis_title="Riesgo",
+        yaxis_title="Frecuencia",
+    )
+    st.plotly_chart(fig_histograma, use_container_width=True)

@@ -33,6 +33,13 @@ st.markdown(
     textarea {
         font-size: 16px !important;
     }
+
+    /* Estilos para la matriz acumulativa en pantallas pequeñas */
+    @media (max-width: 768px) {
+        .dataframe {
+            overflow-x: auto; /* Permite el desplazamiento horizontal */
+        }
+    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -591,11 +598,9 @@ with col_graf:
 
         # Convierte el DataFrame a un archivo Excel
         excel_data = to_excel(df_matriz)
-
         # Agrega un botón de descarga para descargar la matriz en Excel
         st.download_button(
             label=textos_usar["descargar_excel"],
             data=excel_data,
             file_name="matriz_de_riesgos.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

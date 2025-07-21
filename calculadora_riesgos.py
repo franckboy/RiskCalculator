@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
 import plotly.graph_objects as go
 from io import BytesIO
 
@@ -319,7 +318,7 @@ with col_form:
                 "Clasificación Criticidad": clasificacion,
                 "Color Criticidad": color
             }
-            st.session_state.riesgos = st.session_state.riesgos.append(nuevo_riesgo, ignore_index=True)
+            st.session_state.riesgos = pd.concat([st.session_state.riesgos, pd.DataFrame([nuevo_riesgo])], ignore_index=True)
             st.success(textos_usar["exito_agregar"])
 
 with col_graf:
@@ -328,8 +327,6 @@ with col_graf:
     if st.session_state.riesgos.empty:
         st.info(textos_usar["info_agrega_riesgos"])
     else:
-        # Preparar datos para heatmap fijo tipo matriz de riesgo clásico
-
         # Definir orden de probabilidad e impacto para filas y columnas
         prob_order = sorted(matriz_probabilidad["Factor"].tolist())
         impact_order = sorted(matriz_impacto["Nivel"].tolist())
@@ -338,100 +335,86 @@ with col_graf:
         heatmap_pivot = df_heatmap.pivot(index="Probabilidad", columns="Impacto", values="Riesgo Residual").reindex(index=prob_order[::-1], columns=impact_order)
         heatmap_pivot = heatmap_pivot.fillna(0)
 
-        x_labels = [f"{nivel} - {matriz_impacto.loc[matriz_impacto['Nivel']==nivel, 'Clasificacion'].values[0]}" for nivel in impact_order]
-        y_labels = [f"{factor:.2f} - {matriz_probabilidad.loc[matriz_probabilidad['Factor']==factor, 'Clasificacion'].values[0]}" for factor in prob_order[::-1]]
+        x_labels = [f"{nivel} - {tabla_impacto_mostrar.loc[tabla_impacto_mostrar['Nivel']==nivel, 'Clasificacion'].values[0]}" for nivel in heatmap_pivot.columns]
+        y_labels = [f"{prob:.2f} - {matriz_probabilidad.loc[matriz_probabilidad['Factor']==prob, 'Nivel'].values[0]}" for prob in heatmap_pivot.index]
 
         fig_heatmap = go.Figure(data=go.Heatmap(
             z=heatmap_pivot.values,
             x=x_labels,
             y=y_labels,
-            colorscale='RdYlGn_r',
-            colorbar=dict(title=textos_usar["riesgo_residual"]),
-            hoverongaps=False,
+            colorscale='Viridis',
+            colorbar=dict(title="Riesgo Residual")
         ))
+        fig_heatmap.update_layout(margin=dict(l=40, r=20, t=30, b=40), height=400)
 
-        fig_heatmap.update_layout(
-            title=textos_usar["mapa_calor_titulo"],
-            xaxis_title="Impacto",
-            yaxis_title="Probabilidad",
-            xaxis=dict(ticks="", side="bottom", fixedrange=True),
-            yaxis=dict(ticks="", autorange='reversed', fixedrange=True),
-            width=600,
-            height=600,
-            margin=dict(l=80, r=80, t=100, b=100),
-            dragmode=False,
-        )
+        st.plotly_chart(fig_heatmap, use_container_width=True)
 
-        st.plotly_chart(fig_heatmap, use_container_width=False)
-
-        # --- Pareto con tendencia ---
+        # Gráfico Pareto de Riesgos Residuales
         st.header(textos_usar["pareto_titulo"])
-        df_pareto = st.session_state.riesgos.groupby("Nombre Riesgo").agg({"Riesgo Residual": "sum"}).sort_values(by="Riesgo Residual", ascending=False)
-        df_pareto["Porcentaje Acumulado"] = df_pareto["Riesgo Residual"].cumsum() / df_pareto["Riesgo Residual"].sum() * 100
+        df_pareto = st.session_state.riesgos.groupby("Nombre Riesgo").agg({"Riesgo Residual": "sum"}).reset_index()
+        df_pareto = df_pareto.sort_values(by="Riesgo Residual", ascending=False)
+        df_pareto["Porcentaje"] = df_pareto["Riesgo Residual"] / df_pareto["Riesgo Residual"].sum() * 100
+        df_pareto["Acumulado"] = df_pareto["Porcentaje"].cumsum()
 
         fig_pareto = go.Figure()
         fig_pareto.add_trace(go.Bar(
-            x=df_pareto.index,
+            x=df_pareto["Nombre Riesgo"],
             y=df_pareto["Riesgo Residual"],
-            name="Riesgo Residual",
-            marker_color='indianred'
+            name='Riesgo Residual',
+            marker_color='steelblue'
         ))
         fig_pareto.add_trace(go.Scatter(
-            x=df_pareto.index,
-            y=df_pareto["Porcentaje Acumulado"],
-            name="Tendencia acumulada",
-            yaxis="y2",
-            mode="lines+markers",
-            marker_color='blue'
+            x=df_pareto["Nombre Riesgo"],
+            y=df_pareto["Acumulado"],
+            name='Porcentaje acumulado',
+            yaxis='y2',
+            mode='lines+markers',
+            marker_color='crimson'
         ))
+
         fig_pareto.update_layout(
-            yaxis=dict(title="Riesgo Residual"),
-            yaxis2=dict(title="% Acumulado", overlaying='y', side='right', range=[0, 110]),
-            xaxis=dict(tickangle=-45),
-            width=600,
+            yaxis=dict(title='Riesgo Residual'),
+            yaxis2=dict(title='Porcentaje acumulado', overlaying='y', side='right', range=[0, 110]),
+            margin=dict(l=40, r=40, t=30, b=80),
             height=400,
-            margin=dict(l=60, r=60, t=60, b=100),
-            showlegend=True
+            xaxis_tickangle=-45
         )
 
-        st.plotly_chart(fig_pareto, use_container_width=False)
+        st.plotly_chart(fig_pareto, use_container_width=True)
 
-# --- Matriz acumulativa abajo de toda la pantalla ---
-st.markdown(f"## {textos_usar['matriz_acumulativa_titulo']}")
+        # Matriz acumulativa con riesgo residual normalizado
+        st.header(textos_usar["matriz_acumulativa_titulo"])
 
-if st.session_state.riesgos.empty:
-    st.info(textos_usar["info_agrega_riesgos_matriz"])
-else:
-    # Crear matriz acumulativa sumando riesgos residuales por tipo impacto
-    matriz_acum = st.session_state.riesgos.groupby("Tipo Impacto").agg({"Riesgo Residual": "sum"}).reindex(tabla_tipo_impacto["Código"])
-    matriz_acum["Tipo Impacto"] = matriz_acum.index
-    matriz_acum = matriz_acum.merge(tabla_tipo_impacto[["Código", "Tipo de Impacto"]], left_on="Tipo Impacto", right_on="Código", how="left")
-    matriz_acum = matriz_acum[["Tipo Impacto", "Tipo de Impacto", "Riesgo Residual"]]
-    matriz_acum.columns = ["Código", "Tipo de Impacto", "Suma Riesgo Residual"]
+        # Calculamos la matriz sumando ponderaciones (normalizando a 294)
+        total_ponderacion = tabla_tipo_impacto["Ponderación"].sum()
+        matriz_acum = st.session_state.riesgos.groupby(["Tipo Impacto"]).agg({"Riesgo Residual": "sum"}).reset_index()
+        matriz_acum["Indice Criticidad"] = matriz_acum["Riesgo Residual"] / total_ponderacion
 
-    # Mostrar matriz acumulada con colores por criticidad
-    def color_criticidad_celda(val):
-        _, color = clasificar_criticidad_usar(val)
-        return f"background-color: {color}; color: white; font-weight: bold; text-align:center"
+        matriz_acum = matriz_acum.merge(tabla_tipo_impacto[["Código", "Tipo de Impacto"]], left_on="Tipo Impacto", right_on="Código")
+        matriz_acum = matriz_acum[["Tipo Impacto", "Tipo de Impacto", "Riesgo Residual", "Indice Criticidad"]]
 
-    st.dataframe(
-        matriz_acum.style.applymap(color_criticidad_celda, subset=["Suma Riesgo Residual"]).set_properties(**{
-            "font-size": "18px",
-            "text-align": "center"
-        }), height=400
-    )
+        # Mostrar tabla con colores en índice criticidad
+        def color_criticidad(valor):
+            clasif, color = clasificar_criticidad_usar(valor)
+            return f'background-color: {color}; color: white; font-weight: bold;'
 
-    # Descargar excel
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        matriz_acum.to_excel(writer, index=False, sheet_name='Matriz Acumulativa')
-        writer.save()
-    output.seek(0)
+        st.dataframe(
+            matriz_acum.style.format({"Riesgo Residual": "{:.4f}", "Indice Criticidad": "{:.4f}"})
+            .applymap(color_criticidad, subset=["Indice Criticidad"])
+            .set_properties(**{'text-align': 'left'})
+        )
 
-    st.download_button(
-        label=textos_usar["descargar_excel"],
-        data=output,
-        file_name="matriz_acumulativa_riesgos.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        # Opción para descargar Excel
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            matriz_acum.to_excel(writer, index=False, sheet_name='Matriz Acumulativa')
+        output.seek(0)
+
+        st.download_button(
+            label=textos_usar["descargar_excel"],
+            data=output,
+            file_name="matriz_acumulativa.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
 

@@ -1,6 +1,5 @@
 # Configuración de la página de Streamlit para usar un diseño amplio
 st.set_page_config(layout="wide")
-
 # --- CSS personalizado ---
 # Se define un estilo CSS personalizado para mejorar la apariencia de los botones y selectores
 st.markdown(

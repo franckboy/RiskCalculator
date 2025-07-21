@@ -330,7 +330,6 @@ else:
         output = BytesIO()
         writer = pd.ExcelWriter(output, engine='xlsxwriter')
         df.to_excel(writer, index=False, sheet_name='Matriz de Riesgos')
-        writer.save()
         processed_data = output.getvalue()
         return processed_data
 

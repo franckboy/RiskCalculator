@@ -1,4 +1,3 @@
-```python project="RiskCalculator" file="risk_calculator.py" version=19
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -1371,9 +1370,7 @@ with col_form:
     st.write(f"**Riesgo Residual (Sensibilidad):** {riesgo_residual_sensibilidad:.2f}")
     st.markdown(
         f"**Clasificación (Sensibilidad):** <span style='color:{color_sensibilidad};'>{clasificacion_sensibilidad}</span>",
-        unsafe_allow_html=True,
-    )
-
+        unsafe_allow_html=True,)
 # --- Sección de gráficos ---
 with col_graf:
     st.markdown("<h2 class='grafico-header'>Mapa de Calor de Riesgos</h2>", unsafe_allow_html=True)

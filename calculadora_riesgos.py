@@ -238,7 +238,7 @@ else:
 col_form, col_graf = st.columns([3, 2])
 
 with col_form:
-    st.title("Calculadora de Riesgos" if idioma == "es" else "Risk Calculator")
+    st.title("Evaluacion de Riesgos" if idioma == "es" else "Risks assessment ")
     st.subheader(textos_usar["resultados"])
 
     nombre_riesgo = st.text_input(textos_usar["nombre_riesgo"])
@@ -252,7 +252,7 @@ with col_form:
     )
     codigo_impacto = seleccion_impacto.split(" - ")[0]
     justificacion_impacto = tabla_tipo_impacto_mostrar.loc[
-        tabla_tipo_impacto_mostrar["Código"] == codigo_impacto, "Explicación ASIS"
+        tabla_tipo_impacto_mostrar["Código"] == codigo_impacto, "Normativa Oficial"
     ].values[0]
     ponderacion_impacto = tabla_tipo_impacto_mostrar.loc[
         tabla_tipo_impacto_mostrar["Código"] == codigo_impacto, "Ponderación"
@@ -352,7 +352,7 @@ if btn_agregar:
         st.success(textos_usar["exito_agregar"])
 
 with col_graf:
-    st.header(textos_usar["mapa_calor_titulo"])
+    st.header(textos_usar["Mapa de Calor"])
     if st.session_state.riesgos.empty:
         st.info(textos_usar["info_agrega_riesgos"])
     else:

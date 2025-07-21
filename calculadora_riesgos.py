@@ -55,8 +55,6 @@ tabla_tipo_impacto = pd.DataFrame(
             "Comercial (C)",
             "Social (S)",
         ],
-    }
-)
         "Ponderación": [25, 20, 15, 12, 10, 8, 5, 3, 2],
         "Explicación ASIS": [
             "Máxima prioridad: Protección de empleados, visitantes y stakeholders físicos (ASIS enfatiza la seguridad personal).",
@@ -71,7 +69,6 @@ tabla_tipo_impacto = pd.DataFrame(
         ],
     }
 )
-
 factor_exposicion = pd.DataFrame(
     {
         "Factor": [0.05, 0.15, 0.30, 0.55, 0.85],

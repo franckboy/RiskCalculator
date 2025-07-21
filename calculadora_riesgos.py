@@ -4,9 +4,12 @@ import numpy as np
 import plotly.express as px
 from io import BytesIO
 
+# --- Configuración de página ---
 st.set_page_config(layout="wide")
+# --- Fin configuración de página ---
 
-# --- CSS personalizado ---
+
+# --- CSS personalizado para estilos de la app ---
 st.markdown("""
 <style>
     /* Botones verdes visibles */
@@ -35,10 +38,10 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+# --- Fin CSS personalizado ---
 
-# --- Tablas de datos ---
 
-# Tipo de impacto (español)
+# --- Definición de tablas base para datos ---
 tabla_tipo_impacto = pd.DataFrame({
     "Código": ["1", "2", "3", "4", "5"],
     "Tipo de Impacto": ["Daño a la infraestructura crítica", "Pérdida de datos sensibles", "Interrupción operativa", "Daño reputacional", "Impacto financiero"],
@@ -52,26 +55,25 @@ tabla_tipo_impacto = pd.DataFrame({
     "Ponderación": [30, 25, 20, 15, 10]
 })
 
-# Exposición (español)
 tabla_exposicion = pd.DataFrame({
     "Factor": [0.05, 0.2, 0.5, 0.75, 0.95],
     "Nivel": ["Muy baja", "Baja", "Media", "Alta", "Muy alta"]
 })
 
-# Probabilidad (español)
 tabla_probabilidad = pd.DataFrame({
     "Factor": [0.01, 0.1, 0.3, 0.6, 0.85],
     "Nivel": ["Muy rara vez", "Rara vez", "Ocasionalmente", "Frecuentemente", "Muy frecuentemente"]
 })
 
-# Impacto (español)
 tabla_impacto = pd.DataFrame({
     "Nivel": ["Muy bajo", "Bajo", "Medio", "Alto", "Muy alto"],
     "Valor": [1, 2, 4, 7, 10],
     "Descripcion": ["Impacto mínimo", "Impacto leve", "Impacto moderado", "Impacto serio", "Impacto catastrófico"]
 })
+# --- Fin definición de tablas base ---
 
-# Textos español e inglés
+
+# --- Textos multilanguage (español e inglés) ---
 textos = {
     "es": {
         "nombre_riesgo": "Nombre del riesgo",
@@ -124,8 +126,10 @@ textos = {
         "info_agrega_riesgos_matriz": "Add risks to show the accumulated matrix."
     }
 }
+# --- Fin textos multilanguage ---
 
-# Funciones para clasificar criticidad (igual en ambos idiomas)
+
+# --- Funciones de clasificación de criticidad ---
 def clasificar_criticidad(valor):
     if valor <= 0.7:
         return "ACEPTABLE", "#008000"
@@ -145,24 +149,30 @@ def clasificar_criticidad_en(valor):
         return "UNACCEPTABLE", "#FF8C00"
     else:
         return "INTOLERABLE", "#FF0000"
+# --- Fin funciones clasificación ---
 
-# Función principal de cálculo
+
+# --- Función principal de cálculo de criticidad ---
 def calcular_criticidad(probabilidad, exposicion, amenaza_deliberada, efectividad, valor_impacto, ponderacion_impacto):
     amenaza_inherente = probabilidad * exposicion
     amenaza_residual = amenaza_inherente * (1 - efectividad)
     amenaza_residual_ajustada = amenaza_residual * amenaza_deliberada
     riesgo_residual = amenaza_residual_ajustada * valor_impacto * (ponderacion_impacto / 100)
     return amenaza_inherente, amenaza_residual, amenaza_residual_ajustada, riesgo_residual
+# --- Fin función cálculo ---
 
-# Guardar riesgos en sesión
+
+# --- Inicialización del estado de la sesión para riesgos ---
 if "riesgos" not in st.session_state:
     st.session_state.riesgos = pd.DataFrame(columns=[
         "Nombre Riesgo", "Descripción", "Tipo Impacto", "Exposición", "Probabilidad", "Amenaza Deliberada",
         "Efectividad Control (%)", "Impacto", "Amenaza Inherente", "Amenaza Residual", "Amenaza Residual Ajustada",
         "Riesgo Residual", "Clasificación Criticidad", "Color Criticidad"
     ])
+# --- Fin inicialización estado ---
 
-# Selector idioma
+
+# --- Selección de idioma y asignación de tablas y textos ---
 idioma = st.sidebar.selectbox("Selecciona idioma / Select language", options=["es", "en"], index=0)
 
 if idioma == "es":
@@ -179,10 +189,13 @@ else:
     tabla_impacto_mostrar = tabla_impacto
     clasificar_criticidad_usar = clasificar_criticidad_en
     textos_usar = textos["en"]
+# --- Fin selección idioma ---
 
-# Layout: formularios izquierda (60%), gráficos derecha (40%)
+
+# --- Layout principal: formulario a la izquierda, gráficos a la derecha ---
 col_form, col_graf = st.columns([3, 2])
 
+# --- Bloque formulario y entrada de datos ---
 with col_form:
     st.title("Calculadora de Riesgos" if idioma=="es" else "Risk Calculator")
     st.subheader(textos_usar["resultados"])
@@ -262,14 +275,16 @@ with col_form:
             }
             st.session_state.riesgos = pd.concat([st.session_state.riesgos, pd.DataFrame([nuevo_riesgo])], ignore_index=True)
             st.success(textos_usar["exito_agregar"])
+# --- Fin bloque formulario ---
 
+
+# --- Bloque gráficos (mapa de calor y Pareto) ---
 with col_graf:
     st.header(textos_usar["mapa_calor_titulo"])
 
     if not st.session_state.riesgos.empty:
         df = st.session_state.riesgos.copy()
 
-        # Mapa de calor Plotly
         heatmap_df = df.groupby(["Tipo Impacto", "Probabilidad"]).agg(
             {"Amenaza Residual Ajustada": "mean"}).reset_index()
 
@@ -293,7 +308,6 @@ with col_graf:
         )
         st.plotly_chart(fig_heatmap, use_container_width=True)
 
-        # Gráfico Pareto
         st.subheader("Pareto - Riesgos Residuales")
 
         pareto_df = df[["Nombre Riesgo", "Riesgo Residual"]].sort_values("Riesgo Residual", ascending=False).head(10)
@@ -329,7 +343,10 @@ with col_graf:
 
     else:
         st.info(textos_usar["info_agrega_riesgos"])
+# --- Fin bloque gráficos ---
 
+
+# --- Bloque matriz acumulativa y exportación a Excel ---
 st.markdown("---")
 st.header(textos_usar["matriz_acumulativa_titulo"])
 
@@ -337,11 +354,11 @@ if not st.session_state.riesgos.empty:
     df_export = st.session_state.riesgos.copy()
 
     def color_riesgo(row):
-        return ['background-color: ' + row['Color Criticidad'] if col == "Riesgo Residual" else '' for col in row.index]
+        # Pintar solo la columna Riesgo Residual con su color correspondiente
+        return ['background-color: ' + row["Color Criticidad"] if col == "Riesgo Residual" else '' for col in row.index]
 
-    st.dataframe(df_export.style.apply(color_riesgo, axis=1))
+    st.dataframe(df_export.style.apply(color_riesgo, axis=1), use_container_width=True)
 
-    # Botón descarga Excel
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df_export.to_excel(writer, sheet_name='Matriz de Riesgos', index=False)
@@ -353,3 +370,4 @@ if not st.session_state.riesgos.empty:
     )
 else:
     st.info(textos_usar["info_agrega_riesgos_matriz"])
+# --- Fin matriz acumulativa y exportación ---

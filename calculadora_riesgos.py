@@ -41,6 +41,13 @@ st.markdown(
             overflow-x: auto; /* Permite el desplazamiento horizontal */
         }
     }
+
+    /* Estilos para los encabezados de los gráficos */
+    .grafico-header {
+        font-size: 1.2em !important;
+        font-weight: bold;
+        margin-bottom: 0.5em;
+    }
 </style>
 """,
     unsafe_allow_html=True,
@@ -299,6 +306,63 @@ with col_form:
 
     btn_agregar = st.button(textos_usar["agregar_riesgo"])
 
+    # --- Proceso al agregar un riesgo ---
+    # Se ejecuta este código cuando el usuario hace clic en el botón "Agregar riesgo"
+    if btn_agregar:
+        # Valida que se haya ingresado un nombre para el riesgo
+        if nombre_riesgo.strip() == "":
+            st.error("Debe ingresar un nombre para el riesgo.")
+        else:
+            # Normaliza la efectividad del control (de porcentaje a decimal)
+            efectividad_norm = efectividad / 100
+            # Calcula la criticidad del riesgo
+            (
+                amenaza_inherente,
+                amenaza_residual,
+                amenaza_residual_ajustada,
+                riesgo_residual,
+            ) = calcular_criticidad(
+                probabilidad,
+                exposicion,
+                amenaza_deliberada,
+                efectividad_norm,
+                impacto,
+                ponderacion_impacto,
+            )
+            # Clasifica la criticidad del riesgo
+            clasificacion, color = clasificar_criticidad(riesgo_residual)
+
+            # Muestra los resultados y la clasificación del riesgo
+            st.write(f"**Riesgo Residual:** {riesgo_residual:.2f}")
+            st.markdown(
+                f"**Clasificación:** <span style='color:{color};'>{clasificacion}</span>",
+                unsafe_allow_html=True,
+            )
+
+            # Crea un diccionario con los datos del nuevo riesgo
+            nuevo = {
+                "Nombre Riesgo": nombre_riesgo,
+                "Descripción": descripcion,
+                "Tipo Impacto": codigo_impacto,
+                "Exposición": exposicion,
+                "Probabilidad": probabilidad,
+                "Amenaza Deliberada": amenaza_deliberada,
+                "Efectividad Control (%)": efectividad,
+                "Impacto": impacto,
+                "Amenaza Inherente": amenaza_inherente,
+                "Amenaza Residual": amenaza_residual,
+                "Amenaza Residual Ajustada": amenaza_residual_ajustada,
+                "Riesgo Residual": riesgo_residual,
+                "Clasificación Criticidad": clasificacion,
+                "Color Criticidad": color,
+            }
+            # Agrega el nuevo riesgo al DataFrame de riesgos en el session_state
+            st.session_state.riesgos = pd.concat(
+                [st.session_state.riesgos, pd.DataFrame([nuevo])], ignore_index=True
+            )
+            # Muestra un mensaje de éxito
+            st.success(textos_usar["exito_agregar"])
+
     # --- Matriz acumulativa de riesgos ---
     # Se crea una matriz acumulativa para mostrar los datos de los riesgos en formato de tabla
     st.subheader(textos_usar["matriz_acumulativa_titulo"])
@@ -418,62 +482,12 @@ def clasificar_criticidad(valor):
     return "NO CLASIFICADO", "#000000"
 
 
-# --- Proceso al agregar un riesgo ---
-# Se ejecuta este código cuando el usuario hace clic en el botón "Agregar riesgo"
-if btn_agregar:
-    # Valida que se haya ingresado un nombre para el riesgo
-    if nombre_riesgo.strip() == "":
-        st.error("Debe ingresar un nombre para el riesgo.")
-    else:
-        # Normaliza la efectividad del control (de porcentaje a decimal)
-        efectividad_norm = efectividad / 100
-        # Calcula la criticidad del riesgo
-        (
-            amenaza_inherente,
-            amenaza_residual,
-            amenaza_residual_ajustada,
-            riesgo_residual,
-        ) = calcular_criticidad(
-            probabilidad,
-            exposicion,
-            amenaza_deliberada,
-            efectividad_norm,
-            impacto,
-            ponderacion_impacto,
-        )
-        # Clasifica la criticidad del riesgo
-        clasificacion, color = clasificar_criticidad(riesgo_residual)
-
-        # Crea un diccionario con los datos del nuevo riesgo
-        nuevo = {
-            "Nombre Riesgo": nombre_riesgo,
-            "Descripción": descripcion,
-            "Tipo Impacto": codigo_impacto,
-            "Exposición": exposicion,
-            "Probabilidad": probabilidad,
-            "Amenaza Deliberada": amenaza_deliberada,
-            "Efectividad Control (%)": efectividad,
-            "Impacto": impacto,
-            "Amenaza Inherente": amenaza_inherente,
-            "Amenaza Residual": amenaza_residual,
-            "Amenaza Residual Ajustada": amenaza_residual_ajustada,
-            "Riesgo Residual": riesgo_residual,
-            "Clasificación Criticidad": clasificacion,
-            "Color Criticidad": color,
-        }
-        # Agrega el nuevo riesgo al DataFrame de riesgos en el session_state
-        st.session_state.riesgos = pd.concat(
-            [st.session_state.riesgos, pd.DataFrame([nuevo])], ignore_index=True
-        )
-        # Muestra un mensaje de éxito
-        st.success(textos_usar["exito_agregar"])
-
 # --- Sección de gráficos ---
 # Se crean los gráficos para visualizar los riesgos
 with col_graf:
     # --- Mapa de calor de riesgos ---
     # Se crea un mapa de calor para visualizar la distribución de los riesgos
-    st.header(textos_usar["mapa_calor_titulo"])
+    st.markdown("<h2 class='grafico-header'>Mapa de Calor de Riesgos</h2>", unsafe_allow_html=True)
 
     # Muestra un mensaje informativo si no hay riesgos agregados
     if st.session_state.riesgos.empty:
@@ -543,7 +557,7 @@ with col_graf:
 
     # --- Diagrama de Pareto de riesgos residuales ---
     # Se crea un diagrama de Pareto para identificar los riesgos más significativos
-    st.header(textos_usar["pareto_titulo"])
+    st.markdown("<h2 class='grafico-header'>Pareto - Riesgos Residuales</h2>", unsafe_allow_html=True)
     # Muestra un mensaje informativo si no hay riesgos agregados
     if st.session_state.riesgos.empty:
         st.info(textos_usar["info_agrega_riesgos"])
@@ -588,7 +602,7 @@ with col_graf:
 
     # --- Gráfico de Barras Apiladas ---
     # Se crea un gráfico de barras apiladas para visualizar el riesgo por tipo de impacto
-    st.header(textos_usar["stacked_titulo"])
+    st.markdown("<h2 class='grafico-header'>Gráfico de Barras Apiladas - Riesgo por Tipo de Impacto</h2>", unsafe_allow_html=True)
     # Muestra un mensaje informativo si no hay riesgos agregados
     if st.session_state.riesgos.empty:
         st.info(textos_usar["info_agrega_riesgos"])
@@ -621,7 +635,7 @@ with col_graf:
 
     # --- Simulación de Monte Carlo ---
     # Se crea una sección para la simulación de Monte Carlo
-    st.header(textos_usar["montecarlo_titulo"])
+    st.markdown("<h2 class='grafico-header'>Simulación de Monte Carlo</h2>", unsafe_allow_html=True)
 
     # Define los parámetros de la simulación
     num_iteraciones = st.number_input(textos_usar["num_iteraciones"], min_value=100, max_value=10000, value=1000, step=100)

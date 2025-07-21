@@ -299,6 +299,63 @@ with col_form:
 
     btn_agregar = st.button(textos_usar["agregar_riesgo"])
 
+    # --- Matriz acumulativa de riesgos ---
+    # Se crea una matriz acumulativa para mostrar los datos de los riesgos en formato de tabla
+    st.subheader(textos_usar["matriz_acumulativa_titulo"])
+
+    # Muestra un mensaje informativo si no hay riesgos agregados
+    if st.session_state.riesgos.empty:
+        st.info(textos_usar["info_agrega_riesgos_matriz"])
+    else:
+        # Selecciona las columnas a mostrar en la matriz
+        df_matriz = st.session_state.riesgos[
+            [
+                "Nombre Riesgo",
+                "Descripción",
+                "Tipo Impacto",
+                "Exposición",
+                "Probabilidad",
+                "Amenaza Deliberada",
+                "Efectividad Control (%)",
+                "Impacto",
+                "Amenaza Inherente",
+                "Amenaza Residual",
+                "Amenaza Residual Ajustada",
+                "Riesgo Residual",
+                "Clasificación Criticidad",
+            ]
+        ].copy()
+
+        # Define una función para aplicar estilo a las filas según la criticidad del riesgo
+        def estilo_fila_criticidad(row):
+            color = st.session_state.riesgos.loc[row.name, "Color Criticidad"]
+            return [
+                "background-color: " + color if col == "Clasificación Criticidad" else ""
+                for col in row.index
+            ]
+
+        # Muestra la matriz en Streamlit con estilo aplicado
+        st.dataframe(df_matriz.style.apply(estilo_fila_criticidad, axis=1), use_container_width=True)
+
+        # --- Descarga de la matriz en Excel ---
+        # Se crea una función para convertir el DataFrame a un archivo Excel
+        def to_excel(df):
+            output = BytesIO()
+            writer = pd.ExcelWriter(output, engine="xlsxwriter")
+            df.to_excel(writer, index=False, sheet_name="Matriz de Riesgos")
+            processed_data = output.getvalue()
+            return processed_data
+
+        # Convierte el DataFrame a un archivo Excel
+        excel_data = to_excel(df_matriz)
+
+        # Agrega un botón de descarga para descargar la matriz en Excel
+        st.download_button(
+            label=textos_usar["descargar_excel"],
+            data=excel_data,
+            file_name="matriz_de_riesgos.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
 
 # -----------------------------------------
 # CÁLCULOS MATEMÁTICOS Y LÓGICOS AL FINAL
@@ -561,64 +618,6 @@ with col_graf:
 
         # Muestra el gráfico de barras apiladas en Streamlit
         st.plotly_chart(fig_stacked, use_container_width=True)
-
-    # --- Matriz acumulativa de riesgos ---
-    # Se crea una matriz acumulativa para mostrar los datos de los riesgos en formato de tabla
-    st.header(textos_usar["matriz_acumulativa_titulo"])
-
-    # Muestra un mensaje informativo si no hay riesgos agregados
-    if st.session_state.riesgos.empty:
-        st.info(textos_usar["info_agrega_riesgos_matriz"])
-    else:
-        # Selecciona las columnas a mostrar en la matriz
-        df_matriz = st.session_state.riesgos[
-            [
-                "Nombre Riesgo",
-                "Descripción",
-                "Tipo Impacto",
-                "Exposición",
-                "Probabilidad",
-                "Amenaza Deliberada",
-                "Efectividad Control (%)",
-                "Impacto",
-                "Amenaza Inherente",
-                "Amenaza Residual",
-                "Amenaza Residual Ajustada",
-                "Riesgo Residual",
-                "Clasificación Criticidad",
-            ]
-        ].copy()
-
-        # Define una función para aplicar estilo a las filas según la criticidad del riesgo
-        def estilo_fila_criticidad(row):
-            color = st.session_state.riesgos.loc[row.name, "Color Criticidad"]
-            return [
-                "background-color: " + color if col == "Clasificación Criticidad" else ""
-                for col in row.index
-            ]
-
-        # Muestra la matriz en Streamlit con estilo aplicado
-        st.dataframe(df_matriz.style.apply(estilo_fila_criticidad, axis=1), use_container_width=True)
-
-        # --- Descarga de la matriz en Excel ---
-        # Se crea una función para convertir el DataFrame a un archivo Excel
-        def to_excel(df):
-            output = BytesIO()
-            writer = pd.ExcelWriter(output, engine="xlsxwriter")
-            df.to_excel(writer, index=False, sheet_name="Matriz de Riesgos")
-            processed_data = output.getvalue()
-            return processed_data
-
-        # Convierte el DataFrame a un archivo Excel
-        excel_data = to_excel(df_matriz)
-
-        # Agrega un botón de descarga para descargar la matriz en Excel
-        st.download_button(
-            label=textos_usar["descargar_excel"],
-            data=excel_data,
-            file_name="matriz_de_riesgos.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
 
     # --- Simulación de Monte Carlo ---
     # Se crea una sección para la simulación de Monte Carlo

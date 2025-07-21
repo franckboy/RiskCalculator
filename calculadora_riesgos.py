@@ -36,8 +36,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- Tablas de datos ---
+# --- Tablas de datos --- 
 
+# Tipo de impacto con ponderación y explicación
 tabla_tipo_impacto = pd.DataFrame({
     "Código": ["H", "O", "E", "I", "T", "R", "A", "C", "S"],
     "Tipo de Impacto": [
@@ -58,6 +59,7 @@ tabla_tipo_impacto = pd.DataFrame({
     ]
 })
 
+# Matriz de probabilidad - nivel, rango, factor, definición
 matriz_probabilidad = pd.DataFrame({
     "Nivel": [1, 2, 3, 4, 5],
     "Clasificacion": ["Rara", "Poco Probable", "Posible", "Probable", "Casi seguro"],
@@ -72,6 +74,7 @@ matriz_probabilidad = pd.DataFrame({
     ]
 })
 
+# Matriz de impacto/severidad - nivel, valor, clasificación, definición
 matriz_impacto = pd.DataFrame({
     "Nivel": [1, 2, 3, 4, 5],
     "Valor": [5, 10, 30, 60, 85],
@@ -85,6 +88,7 @@ matriz_impacto = pd.DataFrame({
     ]
 })
 
+# Factor de exposición
 factor_exposicion = pd.DataFrame({
     "Factor": [0.05, 0.15, 0.30, 0.55, 0.85],
     "Nivel": ["Muy Baja", "Baja", "Moderada", "Alta", "Muy Alta"],
@@ -97,6 +101,7 @@ factor_exposicion = pd.DataFrame({
     ]
 })
 
+# Factor de probabilidad
 factor_probabilidad = pd.DataFrame({
     "Factor": [0.05, 0.15, 0.30, 0.55, 0.85],
     "Nivel": ["Muy Baja", "Baja", "Moderada", "Alta", "Muy Alta"],
@@ -109,6 +114,7 @@ factor_probabilidad = pd.DataFrame({
     ]
 })
 
+# Efectividad de controles
 efectividad_controles = pd.DataFrame({
     "Rango": ["0%", "1 - 20%", "21-40%", "41-60%", "61-81%", "81-95%", "96-100%"],
     "Factor": [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0],
@@ -124,6 +130,7 @@ efectividad_controles = pd.DataFrame({
     ]
 })
 
+# Índice de criticidad (límites para clasificación)
 criticidad_límites = [
     (0, 0.7, "ACEPTABLE", "#008000"),
     (0.7, 3, "TOLERABLE", "#FFD700"),
@@ -131,6 +138,7 @@ criticidad_límites = [
     (7, float("inf"), "INADMISIBLE", "#FF0000")
 ]
 
+# Traducción para UI (multilenguaje)
 textos = {
     "es": {
         "nombre_riesgo": "Nombre del riesgo",
@@ -186,12 +194,13 @@ textos = {
     }
 }
 
+# Función para clasificar criticidad según índice y color
 def clasificar_criticidad(valor, idioma="es"):
     for limite_inf, limite_sup, clasif, color in criticidad_límites:
         if limite_inf < valor <= limite_sup:
             if idioma == "es":
                 return clasif, color
-            else:
+            else:  # Inglés traducido
                 traduccion = {
                     "ACEPTABLE": "ACCEPTABLE",
                     "TOLERABLE": "TOLERABLE",
@@ -201,6 +210,7 @@ def clasificar_criticidad(valor, idioma="es"):
                 return traduccion.get(clasif, clasif), color
     return "NO CLASIFICADO", "#000000"
 
+# Función de cálculo riesgo
 def calcular_criticidad(probabilidad, exposicion, amenaza_deliberada, efectividad, valor_impacto, ponderacion_impacto):
     amenaza_inherente = probabilidad * exposicion
     amenaza_residual = amenaza_inherente * (1 - efectividad)
@@ -208,14 +218,7 @@ def calcular_criticidad(probabilidad, exposicion, amenaza_deliberada, efectivida
     riesgo_residual = amenaza_residual_ajustada * valor_impacto * (ponderacion_impacto / 100)
     return amenaza_inherente, amenaza_residual, amenaza_residual_ajustada, riesgo_residual
 
-def to_excel(df):
-    output = BytesIO()
-    writer = pd.ExcelWriter(output, engine="xlsxwriter")
-    df.to_excel(writer, index=False, sheet_name="Matriz de Riesgos")
-    writer.save()
-    processed_data = output.getvalue()
-    return processed_data
-
+# Estado para riesgos
 if "riesgos" not in st.session_state:
     st.session_state.riesgos = pd.DataFrame(columns=[
         "Nombre Riesgo", "Descripción", "Tipo Impacto", "Exposición", "Probabilidad", "Amenaza Deliberada",
@@ -223,6 +226,7 @@ if "riesgos" not in st.session_state:
         "Riesgo Residual", "Clasificación Criticidad", "Color Criticidad"
     ])
 
+# Selección idioma con checkbox a la izquierda
 with st.sidebar:
     st.title("Opciones / Options")
     idioma = "es"
@@ -244,6 +248,7 @@ else:
     clasificar_criticidad_usar = lambda v: clasificar_criticidad(v, "en")
     textos_usar = textos["en"]
 
+# Layout principal
 col_form, col_graf = st.columns([3, 2])
 
 with col_form:
@@ -257,9 +262,7 @@ with col_form:
         lambda row: f"{row['Código']} - {row['Tipo de Impacto']} - {row['Ponderación']}% - {row['Explicación ASIS']}", axis=1).tolist()
     seleccion_impacto = st.selectbox(textos_usar["tipo_impacto"], opciones_impacto_visibles)
     codigo_impacto = seleccion_impacto.split(" - ")[0]
-    justificacion_impacto = tabla_tipo_impacto_mostrar.loc[tabla_tipo_impacto_mostrar["Código"] == codigo_impacto, "Explicación ASIS"].values[0]
     ponderacion_impacto = tabla_tipo_impacto_mostrar.loc[tabla_tipo_impacto_mostrar["Código"] == codigo_impacto, "Ponderación"].values[0]
-    st.markdown(f"**{textos_usar['justificacion']}:** {justificacion_impacto}")
 
     exposicion = st.selectbox(
         textos_usar["factor_exposicion"],
@@ -294,6 +297,7 @@ with col_form:
 
     clasificacion, color = clasificar_criticidad_usar(riesgo_residual)
 
+    # Mostrar resultados sin agregar aún
     st.markdown(f"### {textos_usar['resultados']}:")
     st.write(f"- {textos_usar['amenaza_inherente']}: {amenaza_inherente:.4f}")
     st.write(f"- {textos_usar['amenaza_residual']}: {amenaza_residual:.4f}")
@@ -327,101 +331,115 @@ with col_form:
             st.success(textos_usar["exito_agregar"])
 
 with col_graf:
-    st.subheader(textos_usar["mapa_calor_titulo"])
-    if st.session_state.riesgos.empty:
-        st.info(textos_usar["info_agrega_riesgos"])
-    else:
-        # Sumar riesgos residuales para cada probabilidad e impacto
-        heatmap_data = st.session_state.riesgos.groupby(["Probabilidad", "Impacto"])["Riesgo Residual"].sum().reset_index()
-        heatmap_matrix = heatmap_data.pivot(index="Impacto", columns="Probabilidad", values="Riesgo Residual").fillna(0)
-        heatmap_matrix = heatmap_matrix.sort_index(ascending=True)
+    st.header(textos_usar["mapa_calor_titulo"])
 
-        prob_labels = [f"{p:.2f}" for p in sorted(st.session_state.riesgos["Probabilidad"].unique())]
-        impacto_labels = []
-        for i in sorted(st.session_state.riesgos["Impacto"].unique()):
-            c = tabla_impacto_mostrar.loc[tabla_impacto_mostrar["Nivel"] == i, "Clasificacion"].values[0]
-            impacto_labels.append(f"{i} - {c}")
+    if not st.session_state.riesgos.empty:
+        df = st.session_state.riesgos.copy()
 
+        # --- Mapa de calor probabilidad vs impacto (fijo, sin zoom ni pan) ---
+        df_heatmap = df.groupby(["Probabilidad", "Impacto"]).agg({"Riesgo Residual": "sum"}).reset_index()
+
+        # Se pivotea para heatmap estilo matriz
+        heatmap_data = df_heatmap.pivot(index="Impacto", columns="Probabilidad", values="Riesgo Residual").fillna(0)
+
+        # Para ordenar los índices según niveles
+        heatmap_data = heatmap_data.reindex(index=sorted(heatmap_data.index), columns=sorted(heatmap_data.columns))
+
+        # Plot heatmap con plotly
         fig_heatmap = px.imshow(
-            heatmap_matrix,
-            labels=dict(x="Probabilidad", y="Impacto", color="Suma Riesgo Residual"),
-            x=prob_labels,
-            y=impacto_labels,
-            color_continuous_scale="RdYlGn_r",
+            heatmap_data,
+            labels=dict(x="Probabilidad", y="Impacto", color="Riesgo Residual"),
+            x=[f"{p:.2f}" for p in heatmap_data.columns],
+            y=[str(i) for i in heatmap_data.index],
+            color_continuous_scale='RdYlGn_r',
+            origin='lower',
             aspect="auto"
         )
+
+        # Desactivar zoom y pan para heatmap fijo
         fig_heatmap.update_layout(
             dragmode=False,
             hovermode="closest",
-            xaxis=dict(fixedrange=True),
-            yaxis=dict(fixedrange=True),
-            coloraxis_colorbar=dict(ticks="", outlinewidth=0),
-            margin=dict(t=40, b=40, l=40, r=40),
-            height=400
+            margin=dict(l=40, r=20, t=40, b=40)
         )
-        fig_heatmap.update_traces(hovertemplate="Impacto: %{y}<br>Probabilidad: %{x}<br>Suma Riesgo Residual: %{z:.4f}<extra></extra>")
+        fig_heatmap.update_xaxes(fixedrange=True)
+        fig_heatmap.update_yaxes(fixedrange=True)
+
         st.plotly_chart(fig_heatmap, use_container_width=True)
-
-    st.subheader(textos_usar["pareto_titulo"])
-    if st.session_state.riesgos.empty:
-        st.info(textos_usar["info_agrega_riesgos"])
     else:
-        pareto_df = st.session_state.riesgos.groupby("Nombre Riesgo")["Riesgo Residual"].sum().reset_index()
-        pareto_df = pareto_df.sort_values(by="Riesgo Residual", ascending=False)
-        pareto_df["Porcentaje"] = pareto_df["Riesgo Residual"] / pareto_df["Riesgo Residual"].sum()
-        pareto_df["Porcentaje Acumulado"] = pareto_df["Porcentaje"].cumsum()
+        st.info(textos_usar["info_agrega_riesgos"])
 
-        fig_pareto = px.bar(pareto_df, x="Nombre Riesgo", y="Riesgo Residual", labels={"Riesgo Residual": "Riesgo Residual", "Nombre Riesgo": "Riesgo"})
-        fig_pareto.add_scatter(x=pareto_df["Nombre Riesgo"], y=pareto_df["Porcentaje Acumulado"], mode="lines+markers", name="Acumulado", yaxis="y2")
+    st.header(textos_usar["pareto_titulo"])
 
-        fig_pareto.update_layout(
-            yaxis=dict(title="Riesgo Residual"),
-            yaxis2=dict(title="Porcentaje Acumulado", overlaying="y", side="right", range=[0,1]),
-            margin=dict(t=40, b=80, l=40, r=40),
-            height=400
-        )
+    if not st.session_state.riesgos.empty:
+        df = st.session_state.riesgos.copy()
+
+        # Gráfico Pareto: torres ordenadas por riesgo residual descendente + línea tendencia
+        df_pareto = df.groupby("Nombre Riesgo")["Riesgo Residual"].sum().reset_index()
+        df_pareto = df_pareto.sort_values(by="Riesgo Residual", ascending=False)
+
+        fig_pareto = px.bar(df_pareto, x="Nombre Riesgo", y="Riesgo Residual", labels={"Riesgo Residual": textos_usar["riesgo_residual"]})
+        fig_pareto.update_traces(marker_color='steelblue')
+
+        # Añadir línea de tendencia (media móvil simple de 3)
+        df_pareto["Tendencia"] = df_pareto["Riesgo Residual"].rolling(window=3, min_periods=1).mean()
+        fig_pareto.add_scatter(x=df_pareto["Nombre Riesgo"], y=df_pareto["Tendencia"], mode="lines+markers", line=dict(color="red"), name="Tendencia")
+
+        fig_pareto.update_layout(margin=dict(l=40, r=20, t=40, b=40))
+        fig_pareto.update_xaxes(tickangle=45, tickmode='array')
+        fig_pareto.update_yaxes(fixedrange=False)
+
         st.plotly_chart(fig_pareto, use_container_width=True)
+    else:
+        st.info(textos_usar["info_agrega_riesgos"])
 
-# Matriz acumulativa abajo, usando todo ancho y altura suficiente
-st.subheader(textos_usar["matriz_acumulativa_titulo"])
-if st.session_state.riesgos.empty:
-    st.info(textos_usar["info_agrega_riesgos_matriz"])
+# Matriz acumulativa - usa todo el ancho de la pantalla abajo
+st.markdown(f"## {textos_usar['matriz_acumulativa_titulo']}")
+
+if not st.session_state.riesgos.empty:
+    df = st.session_state.riesgos.copy()
+
+    # Suma riesgos por tipo impacto (código) y por nombre
+    matriz_acum = df.pivot_table(
+        index="Nombre Riesgo",
+        columns="Tipo Impacto",
+        values="Riesgo Residual",
+        aggfunc="sum",
+        fill_value=0
+    )
+
+    # Agregar fila con suma total para cada impacto
+    matriz_acum.loc["Total"] = matriz_acum.sum()
+
+    # Mostrar matriz acumulativa como tabla con colores por intensidad de riesgo
+    def color_scale(val):
+        if val == 0:
+            return ""
+        elif val < 0.5:
+            return "background-color: #d4edda;"  # Verde claro
+        elif val < 1.5:
+            return "background-color: #fff3cd;"  # Amarillo claro
+        elif val < 3:
+            return "background-color: #ffe5b4;"  # Naranja claro
+        else:
+            return "background-color: #f8d7da;"  # Rojo claro
+
+    st.dataframe(matriz_acum.style.applymap(color_scale).format("{:.4f}"), height=400)
 else:
-    matriz_acumulativa = st.session_state.riesgos.copy()
-    matriz_acumulativa_display = matriz_acumulativa[[
-        "Nombre Riesgo", "Descripción", "Tipo Impacto", "Exposición", "Probabilidad", "Amenaza Deliberada",
-        "Efectividad Control (%)", "Impacto", "Amenaza Inherente", "Amenaza Residual", "Amenaza Residual Ajustada",
-        "Riesgo Residual", "Clasificación Criticidad"
-    ]]
+    st.info(textos_usar["info_agrega_riesgos_matriz"])
 
-    def color_fondo(c):
-        colores = {
-            "ACEPTABLE": "#d4edda",
-            "TOLERABLE": "#fff3cd",
-            "INACEPTABLE": "#f8d7da",
-            "INADMISIBLE": "#f5c6cb",
-            "ACCEPTABLE": "#d4edda",
-            "TOLERABLE": "#fff3cd",
-            "UNACCEPTABLE": "#f8d7da",
-            "INTOLERABLE": "#f5c6cb"
-        }
-        return f"background-color: {colores.get(c, '#ffffff')}"
+# Botón para descargar matriz en Excel
+if not st.session_state.riesgos.empty:
+    towrite = BytesIO()
+    df_excel = st.session_state.riesgos.copy()
+    df_excel.to_excel(towrite, index=False)
+    towrite.seek(0)
 
-    matriz_acumulativa_display_styled = matriz_acumulativa_display.style.applymap(
-        lambda c: color_fondo(c) if isinstance(c, str) else ""
-    , subset=["Clasificación Criticidad"])
-
-    st.dataframe(matriz_acumulativa_display_styled, height=600, width=None)
-
-    excel_data = to_excel(matriz_acumulativa_display)
     st.download_button(
         label=textos_usar["descargar_excel"],
-        data=excel_data,
+        data=towrite,
         file_name="matriz_riesgos.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-            file_name="matriz_riesgos.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
 

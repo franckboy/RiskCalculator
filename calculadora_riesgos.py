@@ -314,7 +314,10 @@ with col_form:
                 "Clasificación Criticidad": clasificacion,
                 "Color Criticidad": color
             }
-            st.session_state.riesgos = st.session_state.riesgos.append(nuevo_riesgo, ignore_index=True)
+            st.session_state.riesgos = pd.concat(
+    [st.session_state.riesgos, pd.DataFrame([nuevo_riesgo])],
+    ignore_index=True
+)
             st.success(textos_usar["exito_agregar"])
 
 with col_graf:

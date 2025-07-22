@@ -1,21 +1,3 @@
-"""
-modularizado.py
-
-Este script contiene la lógica para una Calculadora de Riesgos y un Simulador Monte Carlo.
-Está diseñado para ser utilizado como la base de una aplicación Streamlit, organizando
-las diferentes funcionalidades en módulos lógicos para una mejor mantenibilidad y claridad.
-
-Contenido:
-1.  **data_config**: Define las tablas base y configuraciones estáticas del modelo.
-2.  **calculations**: Contiene las funciones para los cálculos deterministas y la simulación Monte Carlo.
-3.  **plotting**: Funciones para generar visualizaciones (mapas de calor, Pareto, histogramas).
-4.  **utils**: Funciones de utilidad para la interfaz de usuario y formato de datos.
-5.  **main_app**: La lógica principal de la aplicación Streamlit, que integra todos los módulos.
-"""
-
-# --- 1. data_config.py ---
-# Este módulo contendría todas las configuraciones estáticas y tablas de datos necesarias.
-
 import pandas as pd
 import numpy as np
 

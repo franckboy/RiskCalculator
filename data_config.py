@@ -1,4 +1,5 @@
 import pandas as pd
+
 # Tablas base para el modelo de riesgo
 tabla_tipo_impacto = pd.DataFrame({
     'Tipo de Impacto': ['Humano', 'Operacional', 'Económico', 'Reputacional', 'Legal'],

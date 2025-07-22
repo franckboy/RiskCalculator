@@ -1,136 +1,107 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-from st_aggrid import AgGrid, GridOptionsBuilder
+from calculations import calcular_riesgo_residual, calcular_criticidad, clasificar_criticidad, clasificar_aceptabilidad
+from calculations import generar_estadisticas_montecarlo, simular_montecarlo
+from plotting import generar_grafico_pareto, generar_matriz_acumulada, generar_histograma
+from utils import reset_form_fields, format_risk_dataframe
+from data_config import textos, tipos_riesgo, niveles_probabilidad, niveles_exposicion, niveles_impacto, criticidad_límites
 
-# Configuración de la página
 st.set_page_config(layout="wide")
+st.title("Calculadora de Riesgos - ISO 31000 + ASIS")
 
-# Inicializar tabla de riesgos si no existe
-if "riesgos" not in st.session_state:
-    st.session_state.riesgos = pd.DataFrame(columns=[
-        "Nombre", "Probabilidad", "Impacto", "Exposición", "Riesgo", "Tipo",
-        "Amenaza", "Control", "Residual"
+# Inicialización de variables de estado
+if "df_riesgos" not in st.session_state:
+    st.session_state.df_riesgos = pd.DataFrame(columns=[
+        "Nombre", "Descripción", "Tipo", "Probabilidad", "Exposición",
+        "Impacto", "Efectividad del Control", "Amenaza Deliberada",
+        "Riesgo Residual", "Índice de Criticidad", "Clasificación", "Aceptabilidad"
     ])
+    st.session_state["current_edit_index"] = -1
 
-# Sidebar tipo dashboard
-st.sidebar.title("Menú de Navegación")
-seccion = st.sidebar.radio("Ir a", ["Formulario", "Matriz Acumulada", "Simulación Monte Carlo", "Mapas y Tablas"])
+# Valores por defecto
+st.session_state.setdefault('default_type_impact', tipos_riesgo[0])
+st.session_state.setdefault('default_probabilidad', niveles_probabilidad[0])
+st.session_state.setdefault('default_exposicion', niveles_exposicion[0])
+st.session_state.setdefault('default_impacto_numerico', 50)
+st.session_state.setdefault('default_control_effectiveness', 0.5)
 
-# FORMULARIO
-if seccion == "Formulario":
-    st.header("Formulario de Evaluación de Riesgos")
-    with st.form("riesgo_form"):
-        col1, col2 = st.columns(2)
-        with col1:
-            nombre = st.text_input("Nombre del Riesgo")
-            probabilidad = st.slider("Probabilidad", 1, 5, 3)
-            exposicion = st.slider("Exposición", 1, 5, 3)
-        with col2:
-            impacto = st.slider("Impacto", 1, 100, 50)
-            tipo = st.selectbox("Tipo de Impacto", ["H", "E", "O", "A", "I", "T", "R", "C", "S"])
-            amenaza = st.selectbox("Amenaza Deliberada", [1, 2, 3])
-            control = st.slider("Efectividad de Control (%)", 0, 100, 50)
-        enviar = st.form_submit_button("Agregar Riesgo")
+# ---- FORMULARIO PRINCIPAL ----
+with st.form("formulario_riesgo"):
+    col1, col2 = st.columns(2)
+    with col1:
+        nombre = st.text_input("Nombre del riesgo", key="risk_name_input")
+        descripcion = st.text_area("Descripción", key="risk_description_input")
+        tipo = st.selectbox("Tipo de riesgo", tipos_riesgo, key="selected_type_impact")
+        probabilidad = st.selectbox("Probabilidad", niveles_probabilidad, key="selected_probabilidad")
+        exposicion = st.selectbox("Exposición", niveles_exposicion, key="selected_exposicion")
+    with col2:
+        impacto = st.slider("Impacto numérico (1-100)", 1, 100, key="impacto_numerico_slider")
+        efectividad_control = st.slider("Efectividad del control (0.0 = sin control, 1.0 = control perfecto)", 0.0, 1.0, 0.5, key="control_effectiveness_slider")
+        amenaza_deliberada = st.checkbox("¿Amenaza deliberada?", key="deliberate_threat_checkbox")
 
-    if enviar and nombre:
-        riesgo = probabilidad * impacto
-        residual = riesgo * (1 - control / 100) * amenaza * (exposicion / 5)
-        nuevo = pd.DataFrame([[nombre, probabilidad, impacto, exposicion, riesgo, tipo, amenaza, control, residual]],
-                              columns=st.session_state.riesgos.columns)
-        if "Nombre" in st.session_state.riesgos.columns and nombre in st.session_state.riesgos["Nombre"].values:
-            st.warning("Ese riesgo ya existe. Usa otro nombre o elimínalo primero.")
-        else:
-            st.session_state.riesgos = pd.concat([st.session_state.riesgos, nuevo], ignore_index=True)
-            st.success("Riesgo agregado correctamente")
+    submit = st.form_submit_button("Agregar/Actualizar Riesgo")
 
-# MATRIZ ACUMULADA
-if seccion == "Matriz Acumulada":
-    st.header("Matriz Acumulada de Riesgos")
+# ---- LÓGICA DE FORMULARIO ----
+if submit:
+    riesgo_residual = calcular_riesgo_residual(probabilidad, exposicion, impacto, efectividad_control)
+    criticidad = calcular_criticidad(riesgo_residual, amenaza_deliberada)
+    clasificacion = clasificar_criticidad(criticidad)
+    aceptabilidad = clasificar_aceptabilidad(criticidad)
 
-    if not st.session_state.riesgos.empty:
-        gb = GridOptionsBuilder.from_dataframe(st.session_state.riesgos)
-        gb.configure_default_column(resizable=True, filter=True, sortable=True)
-        grid_options = gb.build()
-        AgGrid(st.session_state.riesgos, gridOptions=grid_options, height=300)
+    nuevo_riesgo = pd.DataFrame([{
+        "Nombre": nombre,
+        "Descripción": descripcion,
+        "Tipo": tipo,
+        "Probabilidad": probabilidad,
+        "Exposición": exposicion,
+        "Impacto": impacto,
+        "Efectividad del Control": efectividad_control,
+        "Amenaza Deliberada": amenaza_deliberada,
+        "Riesgo Residual": riesgo_residual,
+        "Índice de Criticidad": criticidad,
+        "Clasificación": clasificacion,
+        "Aceptabilidad": aceptabilidad
+    }])
 
-        st.subheader("Eliminar Riesgo")
-        riesgo_borrar = st.text_input("Nombre del riesgo a eliminar")
-        if st.button("Eliminar"):
-            if "Nombre" in st.session_state.riesgos.columns and riesgo_borrar in st.session_state.riesgos["Nombre"].values:
-                st.session_state.riesgos = st.session_state.riesgos[st.session_state.riesgos["Nombre"] != riesgo_borrar]
-                st.success("Riesgo eliminado")
-            else:
-                st.warning("Nombre no encontrado")
-
-        if st.button("Limpiar Matriz Acumulada"):
-            st.session_state.riesgos = pd.DataFrame(columns=st.session_state.riesgos.columns)
-            st.success("Matriz acumulada vaciada")
+    if st.session_state.current_edit_index >= 0:
+        st.session_state.df_riesgos.iloc[st.session_state.current_edit_index] = nuevo_riesgo.iloc[0]
     else:
-        st.info("No hay riesgos en la matriz acumulada.")
+        st.session_state.df_riesgos = pd.concat([st.session_state.df_riesgos, nuevo_riesgo], ignore_index=True)
 
-# SIMULACIÓN MONTE CARLO
-if seccion == "Simulación Monte Carlo":
-    st.header("Simulación Monte Carlo del Riesgo")
+    reset_form_fields()
 
-    n_iter = st.slider("Número de Iteraciones", 100, 10000, 1000)
-    min_prob = st.slider("Probabilidad mínima", 1, 5, 1)
-    max_prob = st.slider("Probabilidad máxima", 1, 5, 5)
-    impacto_usuario = st.slider("Impacto fijo (aplicado a todas las simulaciones)", 1, 100, 50)
+# ---- TABLA DE RIESGOS ----
+if not st.session_state.df_riesgos.empty:
+    st.subheader("Listado de Riesgos")
+    st.dataframe(format_risk_dataframe(st.session_state.df_riesgos))
 
-    resultados = []
-    for _ in range(n_iter):
-        prob = np.random.uniform(min_prob, max_prob)
-        resultados.append(prob * impacto_usuario)
+# ---- GRÁFICOS Y ANÁLISIS ----
+if not st.session_state.df_riesgos.empty:
+    st.subheader("Gráficos")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.plotly_chart(generar_grafico_pareto(st.session_state.df_riesgos), use_container_width=True)
+    with col2:
+        st.plotly_chart(generar_matriz_acumulada(st.session_state.df_riesgos), use_container_width=True)
 
-    st.write("---")
-    st.subheader("Histograma del Riesgo Simulado")
-    fig = go.Figure()
-    fig.add_trace(go.Histogram(x=resultados, nbinsx=50))
-    st.plotly_chart(fig, use_container_width=True)
+# ---- MONTE CARLO ----
+st.subheader("Simulación Monte Carlo")
+col1, col2 = st.columns(2)
+with col1:
+    min_prob = st.slider("Probabilidad mínima", 1, 100, 10)
+    max_prob = st.slider("Probabilidad máxima", min_prob, 100, 80)
+    min_imp = st.slider("Impacto mínimo", 1, 100, 20)
+    max_imp = st.slider("Impacto máximo", min_imp, 100, 90)
+with col2:
+    n_iter = st.number_input("Iteraciones", min_value=100, max_value=100000, value=1000)
 
-    st.write(f"**Promedio:** {np.mean(resultados):.2f} | **Máximo:** {np.max(resultados):.2f} | **Percentil 95:** {np.percentile(resultados, 95):.2f}")
+riesgos_simulados = simular_montecarlo(n_iter, min_prob, max_prob, min_imp, max_imp)
+stats = generar_estadisticas_montecarlo(riesgos_simulados)
 
-# MAPAS Y TABLAS
-if seccion == "Mapas y Tablas":
-    st.header("Visualización de Datos de Riesgo")
+st.plotly_chart(generar_histograma(riesgos_simulados), use_container_width=True)
 
-    if not st.session_state.riesgos.empty:
-        st.subheader("Mapa de Calor (Impacto vs Riesgo Residual)")
-        heat_df = st.session_state.riesgos[["Impacto", "Residual"]].copy()
-
-        fig = go.Figure(data=go.Heatmap(
-            z=heat_df["Residual"],
-            x=heat_df["Impacto"],
-            y=heat_df["Impacto"],  # Para que se vea simétrico en ambas direcciones
-            colorscale="YlOrRd"
-        ))
-        fig.update_layout(xaxis_title="Impacto", yaxis_title="Impacto", height=400)
-        st.plotly_chart(fig, use_container_width=True)
-
-        st.subheader("Gráfico de Barras - Riesgo Residual")
-        fig2 = go.Figure()
-        fig2.add_trace(go.Bar(
-            x=st.session_state.riesgos["Nombre"],
-            y=st.session_state.riesgos["Residual"],
-            marker_color='indianred'))
-        fig2.update_layout(xaxis_title="Riesgo", yaxis_title="Residual")
-        st.plotly_chart(fig2, use_container_width=True)
-
-        st.subheader("Gráfico de Pareto")
-        ordenado = st.session_state.riesgos.sort_values(by="Residual", ascending=False)
-        ordenado["Acumulado"] = ordenado["Residual"].cumsum() / ordenado["Residual"].sum()
-
-        fig3 = go.Figure()
-        fig3.add_trace(go.Bar(x=ordenado["Nombre"], y=ordenado["Residual"], name="Residual"))
-        fig3.add_trace(go.Scatter(x=ordenado["Nombre"], y=ordenado["Acumulado"], name="% Acumulado", yaxis="y2"))
-        fig3.update_layout(
-            yaxis2=dict(overlaying='y', side='right', range=[0, 1]),
-            yaxis=dict(title="Residual"),
-            yaxis2_title="% Acumulado",
-            title="Pareto de Riesgos"
-        )
-        st.plotly_chart(fig3, use_container_width=True)
-    else:
-        st.info("Agrega riesgos para ver visualizaciones.")
+st.markdown(f"<div class='metric-box'><h3>{textos['media']}: {stats['media']:.2f}</h3></div>", unsafe_allow_html=True)
+st.markdown(f"<div class='metric-box'><h3>{textos['max']}: {stats['max']:.2f}</h3></div>", unsafe_allow_html=True)
+st.markdown(f"<div class='metric-box'><h3>{textos['min']}: {stats['min']:.2f}</h3></div>", unsafe_allow_html=True)
+st.markdown(f"<div class='metric-box'><h3>{textos['percentil_95']}: {stats['percentil_95']:.2f}</h3></div>", unsafe_allow_html=True)
